@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flood-prediction-web
+  namespace: flood-prediction
+  labels:
+    app.kubernetes.io/name: flood-prediction
+    app.kubernetes.io/part-of: flood-prediction
+    app.kubernetes.io/component: web
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: flood-prediction.h2o.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flood-prediction-web
+                port:
+                  number: 80

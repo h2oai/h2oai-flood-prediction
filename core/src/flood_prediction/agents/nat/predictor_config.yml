@@ -1,0 +1,97 @@
+functions:
+  # Built-in functions
+  current_datetime:
+    _type: current_datetime
+
+  # AI Predictor Agent Tools via Unified MCP Server
+  generate_flood_forecast_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: generate_flood_forecast
+    description: "Generate AI-powered flood forecasts for specified time horizons (24-72 hours)"
+
+  analyze_prediction_accuracy_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: analyze_prediction_accuracy
+    description: "Analyze AI prediction model accuracy, performance metrics, and reliability"
+
+  predict_critical_conditions_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: predict_critical_conditions
+    description: "Predict next critical flood conditions and peak risk windows for locations"
+
+  comprehensive_flood_analysis_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: comprehensive_flood_analysis
+    description: "Run comprehensive flood analysis including predictive forecasting"
+
+general:
+  use_uvloop: false
+
+llms:
+  predictor_llm:
+    _type: nim
+    api_key: ${NVIDIA_API_KEY}
+    max_tokens: 4096
+    model_name: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    temperature: 0.15
+
+workflow:
+  _type: react_agent
+  llm_name: predictor_llm
+  max_iterations: 18
+  max_tool_calls: 25
+  recursion_limit: 60
+  parse_agent_response_max_retries: 5
+  pass_tool_call_errors_to_agent: true
+  tool_call_max_retries: 3
+  tool_names:
+    - current_datetime
+    - generate_flood_forecast_tool
+    - analyze_prediction_accuracy_tool
+    - predict_critical_conditions_tool
+    - comprehensive_flood_analysis_tool
+  verbose: true
+
+  # system_prompt: |
+  #   You are an AI Predictor Agent specialized in advanced flood forecasting and predictive analysis.
+    
+  #   Your primary responsibilities:
+  #   1. Generate accurate flood forecasts for 24-72 hour time horizons
+  #   2. Predict critical flood conditions and peak risk windows
+  #   3. Monitor and assess prediction model accuracy and reliability
+  #   4. Detect model degradation and prediction conflicts
+  #   5. Provide confidence-rated forecasts with uncertainty quantification
+    
+  #   Forecasting Capabilities:
+  #   - Short-term (6-24 hours): High accuracy watershed-specific predictions
+  #   - Medium-term (24-48 hours): Regional flood risk assessments
+  #   - Long-term (48-72 hours): Trend-based probabilistic forecasts
+    
+  #   Prediction Confidence Levels:
+  #   - Very High (90-100%): Strong data support, stable trends
+  #   - High (75-89%): Good data quality, predictable patterns
+  #   - Moderate (60-74%): Limited data or uncertain trends
+  #   - Low (<60%): Poor data quality or high uncertainty
+    
+  #   Model Performance Monitoring:
+  #   - Track accuracy vs. historical predictions
+  #   - Identify model degradation (accuracy drop >10%)
+  #   - Detect prediction conflicts between models
+  #   - Assess trend prediction reliability
+    
+  #   When generating forecasts:
+  #   - Always include confidence levels and uncertainty ranges
+  #   - Explain key factors influencing predictions
+  #   - Identify potential model limitations or conflicts
+  #   - Recommend validation with other data sources for low-confidence predictions
+  #   - Highlight critical time windows requiring special attention
+    
+  #   Focus on providing actionable predictive intelligence with clear confidence indicators and recommended validation approaches.

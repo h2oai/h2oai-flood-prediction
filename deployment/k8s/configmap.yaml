@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flood-prediction-config
+  namespace: flood-prediction # change/ensure this namespace exists (kubectl create ns flood-prediction)
+  labels:
+    app.kubernetes.io/name: flood-prediction
+    app.kubernetes.io/part-of: flood-prediction
+    app.kubernetes.io/component: web
+data:
+  # Non-secret environment variables (from .env) and application configuration
+  NIM_LLM_ENDPOINT: "http://flood-prediction-nim:8001/v1" # adjust if using external service
+  APP_H2OGPTE_URL: "https://h2ogpte.cloud-dev.h2o.dev"
+  APP_H2OGPTE_MODEL: "claude-sonnet-4-20250514"
+  H2OGPTE_URL: "https://h2ogpte.cloud-dev.h2o.dev"
+  H2OGPTE_MODEL: "claude-sonnet-4-20250514"

@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flood-prediction-web
+  namespace: flood-prediction
+  labels:
+    app.kubernetes.io/name: flood-prediction
+    app.kubernetes.io/part-of: flood-prediction
+    app.kubernetes.io/component: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flood-prediction
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: flood-prediction
+        app.kubernetes.io/part-of: flood-prediction
+        app.kubernetes.io/component: web
+    spec:
+      serviceAccountName: default
+      imagePullSecrets:
+        - name: flood-prediction-registry
+      containers:
+        - name: web
+          image: h2oaireleasetest/h2oai-flood-prediction:v0.2.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: flood-prediction-config
+            - secretRef:
+                name: flood-prediction-secrets
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

@@ -1,0 +1,93 @@
+functions:
+  # Built-in functions
+  current_datetime:
+    _type: current_datetime
+
+  # H2OGPTE ML Agent Tools via Unified MCP Server
+  h2ogpte_train_model_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: h2ogpte_train_model
+    description: "Train ML models using H2OGPTE agent with Driverless AI AutoML capabilities for flood prediction"
+
+  h2ogpte_analyze_performance_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: h2ogpte_analyze_performance
+    description: "Analyze ML model performance and provide optimization recommendations using H2OGPTE agent"
+
+  h2ogpte_optimize_features_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: h2ogpte_optimize_features
+    description: "Optimize features for flood prediction using H2OGPTE agent feature engineering capabilities"
+
+  h2ogpte_get_status_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: h2ogpte_get_status
+    description: "Get H2OGPTE agent status, training history, and model performance metrics"
+
+general:
+  use_uvloop: false
+
+llms:
+  h2ogpte_agent_llm:
+    _type: nim
+    api_key: ${NVIDIA_API_KEY}
+    max_tokens: 8192
+    model_name: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    temperature: 0.2
+
+workflow:
+  _type: react_agent
+  llm_name: h2ogpte_agent_llm
+  max_iterations: 15
+  max_tool_calls: 20
+  recursion_limit: 50
+  parse_agent_response_max_retries: 3
+  pass_tool_call_errors_to_agent: true
+  tool_call_max_retries: 3
+  tool_names:
+    - current_datetime
+    - h2ogpte_train_model_tool
+    - h2ogpte_analyze_performance_tool
+    - h2ogpte_optimize_features_tool
+    - h2ogpte_get_status_tool
+  verbose: true
+
+  # system_prompt: |
+  #   You are an H2OGPTE ML Agent specialized in AutoML model training and optimization for flood prediction systems.
+    
+  #   Your core capabilities:
+  #   1. **AutoML Training**: Use Driverless AI through H2OGPTE agent mode for automated machine learning
+  #   2. **Feature Engineering**: Optimize features specifically for flood prediction and time-series data
+  #   3. **Model Analysis**: Provide deep performance analysis and optimization recommendations
+  #   4. **ML Pipeline Design**: Design end-to-end ML pipelines for production flood prediction
+    
+  #   **Training Focus Areas:**
+  #   - Time-series flood prediction models
+  #   - Multi-variate environmental data integration
+  #   - Real-time prediction systems
+  #   - Model interpretability for emergency response
+  #   - Handling imbalanced flood event data
+  #   - Temporal dependency modeling
+    
+  #   **When working with users:**
+  #   - Always use h2ogpte_train_model_tool for any training requests
+  #   - Provide comprehensive analysis using h2ogpte_analyze_performance_tool
+  #   - Optimize features with h2ogpte_optimize_features_tool when dealing with data preparation
+  #   - Check status with h2ogpte_get_status_tool to understand current capabilities
+    
+  #   **Best Practices:**
+  #   - Focus on flood prediction specific challenges (seasonality, rare events, temporal patterns)
+  #   - Emphasize model explainability for emergency response decisions
+  #   - Consider real-time deployment requirements
+  #   - Address data quality and preprocessing needs
+  #   - Provide actionable recommendations with implementation guidance
+    
+  #   Always leverage the H2OGPTE agent mode to provide expert-level AutoML guidance and utilize Driverless AI capabilities for comprehensive model development.

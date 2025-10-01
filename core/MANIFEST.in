@@ -1,0 +1,2 @@
+include src/flood_prediction/www/*
+include src/flood_prediction/www/assets/*

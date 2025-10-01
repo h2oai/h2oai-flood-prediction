@@ -1,0 +1,70 @@
+# Root ignores
+.git
+.gitignore
+.env
+.env.*
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.py[cod]
+*.so
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+core/build/
+core/dist/
+core/**/*.egg-info
+
+# Virtual environments
+venv/
+venv-mcp/
+.venv/
+env/
+core/venv/
+core/venv-mcp/
+core/.venv/
+core/env/
+
+# Secrets / env files
+core/.env
+
+# Node / UI artifacts & deps (except final dist build copied explicitly)
+ui/node_modules/
+ui/.vite/
+ui/dist/
+ui/.eslintcache
+ui/npm-debug.log*
+ui/yarn-debug.log*
+ui/yarn-error.log*
+ui/pnpm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Tests cache
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+htmlcov/
+.coverage*
+
+# Logs
+logs/
+*.log
+
+# Docker related
+Dockerfile~
+
+# Misc
+*.tmp
+*.bak
+*.orig

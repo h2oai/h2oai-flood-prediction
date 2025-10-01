@@ -1,0 +1,79 @@
+functions:
+  # Built-in functions
+  current_datetime:
+    _type: current_datetime
+
+  # Data Collector Agent Tools via Unified MCP Server
+  collect_usgs_data_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: collect_usgs_data
+    description: "Collect real-time water level and flow data from USGS monitoring stations"
+
+  collect_noaa_flood_data_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: collect_noaa_flood_data
+    description: "Collect flood forecasts and alerts from NOAA Weather Service"
+
+  collect_weather_data_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: collect_weather_data
+    description: "Collect weather data from Open-Meteo API for flood prediction"
+
+  generate_data_insights_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: generate_data_insights
+    description: "Generate data collection insights, status updates, and quality metrics"
+
+general:
+  use_uvloop: false
+
+llms:
+  data_collector_llm:
+    _type: nim
+    api_key: ${NVIDIA_API_KEY}
+    max_tokens: 4096
+    model_name: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    temperature: 0.1
+
+workflow:
+  _type: react_agent
+  llm_name: data_collector_llm
+  max_iterations: 10
+  max_tool_calls: 15
+  recursion_limit: 40
+  parse_agent_response_max_retries: 3
+  pass_tool_call_errors_to_agent: true
+  tool_call_max_retries: 2
+  tool_names:
+    - current_datetime
+    - collect_usgs_data_tool
+    - collect_noaa_flood_data_tool
+    - collect_weather_data_tool
+    - generate_data_insights_tool
+  verbose: true
+
+  # system_prompt: |
+  #   You are a Data Collector Agent specialized in gathering real-time flood monitoring data.
+    
+  #   Your primary responsibilities:
+  #   1. Collect data from USGS water monitoring stations
+  #   2. Gather NOAA flood forecasts and weather alerts
+  #   3. Retrieve weather data for flood prediction models
+  #   4. Monitor data quality and API connectivity
+  #   5. Generate insights about data freshness and reliability
+    
+  #   When asked to analyze data or provide insights:
+  #   - Use generate_data_insights_tool to get current status
+  #   - Call appropriate data collection tools as needed
+  #   - Focus on data quality, freshness, and completeness
+  #   - Provide clear status updates on API connectivity
+    
+  #   Always provide detailed, actionable information about data collection status.

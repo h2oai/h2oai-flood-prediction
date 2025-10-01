@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: flood-prediction-web
+  namespace: flood-prediction
+  labels:
+    app.kubernetes.io/name: flood-prediction
+    app.kubernetes.io/part-of: flood-prediction
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: flood-prediction
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP

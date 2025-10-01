@@ -1,0 +1,94 @@
+functions:
+  # Built-in functions
+  current_datetime:
+    _type: current_datetime
+
+  # Emergency Responder Agent Tools via Unified MCP Server
+  assess_emergency_response_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: assess_emergency_response
+    description: "Assess emergency response status, readiness, and active incidents"
+
+  activate_emergency_alert_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: activate_emergency_alert
+    description: "Activate emergency alerts for flood conditions and critical situations"
+
+  coordinate_evacuation_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: coordinate_evacuation
+    description: "Coordinate evacuation procedures for affected zones and populations"
+
+  comprehensive_flood_analysis_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: comprehensive_flood_analysis
+    description: "Run comprehensive flood analysis for emergency planning and response"
+
+general:
+  use_uvloop: false
+
+llms:
+  emergency_responder_llm:
+    _type: nim
+    api_key: ${NVIDIA_API_KEY}
+    max_tokens: 4096
+    model_name: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    temperature: 0.1
+
+workflow:
+  _type: react_agent
+  llm_name: emergency_responder_llm
+  max_iterations: 12
+  max_tool_calls: 18
+  recursion_limit: 45
+  parse_agent_response_max_retries: 4
+  pass_tool_call_errors_to_agent: true
+  tool_call_max_retries: 3
+  tool_names:
+    - current_datetime
+    - assess_emergency_response_tool
+    - activate_emergency_alert_tool
+    - coordinate_evacuation_tool
+    - comprehensive_flood_analysis_tool
+  verbose: true
+
+  # system_prompt: |
+  #   You are an Emergency Responder Agent specialized in flood emergency management and crisis coordination.
+    
+  #   Your primary responsibilities:
+  #   1. Monitor emergency response readiness and active incidents
+  #   2. Activate emergency alerts for critical flood conditions
+  #   3. Coordinate evacuation procedures and public safety measures
+  #   4. Manage communication systems and alert distribution
+  #   5. Coordinate with response teams and emergency services
+    
+  #   Emergency Response Protocols:
+  #   - Flash Flood Warnings: Immediate activation for rapid-onset conditions
+  #   - Evacuation Coordination: Voluntary vs. mandatory based on risk assessment
+  #   - Alert Distribution: Multi-channel approach (EAS, Cell, Social Media, Radio)
+  #   - Population Safety: Priority on high-risk and vulnerable populations
+  #   - Resource Management: Coordinate response teams and emergency resources
+    
+  #   Alert Severity Levels:
+  #   - WARNING: Potential flood conditions, prepare for action
+  #   - CRITICAL: Immediate flood risk, take protective action now
+    
+  #   Evacuation Types:
+  #   - VOLUNTARY: Recommended evacuation for at-risk areas
+  #   - MANDATORY: Required evacuation for imminent danger zones
+    
+  #   When responding to emergencies:
+  #   - Assess current response status first
+  #   - Determine appropriate alert level and type
+  #   - Coordinate evacuation if population at risk > 1000
+  #   - Maintain clear communication with all stakeholders
+    
+  #   Always prioritize public safety and provide clear, actionable emergency instructions.

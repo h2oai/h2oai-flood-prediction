@@ -1,0 +1,56 @@
+# Basic settings
+replicaCount: 1
+
+image:
+  repository: h2oai-flood-prediction
+  registry: h2oairelease
+  # If tag is empty, the chart appVersion will be used
+  tag: v0.2.4
+  pullPolicy: IfNotPresent
+
+# Use an existing ServiceAccount name (keep it simple)
+serviceAccountName:
+
+# Optionally reference existing imagePullSecrets, e.g. created by your platform
+imagePullSecrets: []
+
+service:
+  # If using NodePort, optionally, specify the nodePort value
+  type: ClusterIP
+  nodePort:
+
+ingress:
+  enabled: true
+  hostName: example.com
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+resources:
+  requests:
+    cpu: 1
+    memory: 1Gi
+
+extraEnv: {}
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    registry: docker.io
+    tag: "8.2.1"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+h2ogpte:
+  url: "https://h2ogpte.cloud-dev.h2o.dev"
+  model: "claude-sonnet-4-20250514"
+  apiKey:
+
+nvidia:
+  apiKey:

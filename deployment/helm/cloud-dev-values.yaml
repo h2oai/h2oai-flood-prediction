@@ -1,0 +1,11 @@
+imagePullSecrets:
+  - name: pull-secret-gar-dev
+
+ingress:
+  hostName: flood-prediction.cloud-dev.h2o.dev
+
+image:
+  registry: us-docker.pkg.dev/vorvan/dev
+  repository: h2oai-floodprediction-app
+  tag: latest
+  pullPolicy: Always

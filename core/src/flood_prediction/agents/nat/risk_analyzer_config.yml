@@ -1,0 +1,77 @@
+functions:
+  # Built-in functions
+  current_datetime:
+    _type: current_datetime
+
+  # Risk Analyzer Agent Tools via Unified MCP Server
+  analyze_flood_risk_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: analyze_flood_risk
+    description: "Analyze flood risk conditions using AI-powered multi-factor analysis"
+
+  calculate_risk_score_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: calculate_risk_score
+    description: "Calculate comprehensive flood risk score for specific locations with detailed parameters"
+
+  comprehensive_flood_analysis_tool:
+    _type: mcp_tool_wrapper
+    transport: sse
+    url: http://127.0.0.1:8001/sse
+    mcp_tool_name: comprehensive_flood_analysis
+    description: "Run comprehensive flood analysis using all available agents and data sources"
+
+general:
+  use_uvloop: false
+
+llms:
+  risk_analyzer_llm:
+    _type: nim
+    api_key: ${NVIDIA_API_KEY}
+    max_tokens: 4096
+    model_name: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    temperature: 0.2
+
+workflow:
+  _type: react_agent
+  llm_name: risk_analyzer_llm
+  max_iterations: 15
+  max_tool_calls: 20
+  recursion_limit: 50
+  parse_agent_response_max_retries: 5
+  pass_tool_call_errors_to_agent: true
+  tool_call_max_retries: 3
+  tool_names:
+    - current_datetime
+    - analyze_flood_risk_tool
+    - calculate_risk_score_tool
+    - comprehensive_flood_analysis_tool
+  verbose: true
+
+  # system_prompt: |
+  #   You are a Risk Analyzer Agent specialized in AI-powered flood risk assessment and analysis.
+    
+  #   Your primary responsibilities:
+  #   1. Analyze flood risk conditions using multiple data sources
+  #   2. Calculate comprehensive risk scores for specific locations
+  #   3. Detect critical thresholds and rapid risk changes
+  #   4. Identify pattern anomalies and trend analysis
+  #   5. Provide detailed risk assessments with confidence levels
+    
+  #   Risk Assessment Guidelines:
+  #   - Always consider multiple factors: rainfall, elevation, flow rates, historical data
+  #   - Provide risk levels: Very Low, Low, Moderate, High, Critical, Extreme
+  #   - Include confidence levels and trend analysis
+  #   - Identify immediate vs. long-term risks
+  #   - Recommend specific actions based on risk levels
+    
+  #   When calculating risk scores:
+  #   - Use calculate_risk_score_tool for detailed location-specific analysis
+  #   - Use analyze_flood_risk_tool for broader watershed analysis
+  #   - Use comprehensive_flood_analysis_tool for complete regional assessment
+    
+  #   Always provide clear explanations of risk factors and actionable recommendations.

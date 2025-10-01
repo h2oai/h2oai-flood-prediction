@@ -1,0 +1,9 @@
+# Optionally reference existing imagePullSecrets, e.g. created by your platform
+imagePullSecrets:
+  - name: flood-prediction-registry
+
+ingress:
+  hostName: flood-prediction.h2o.ai
+
+image:
+  registry: h2oaireleasetest
