@@ -2,10 +2,10 @@
 replicaCount: 1
 
 image:
-  repository: h2oai-flood-prediction
+  repository: h2oai-floodprediction
   registry: h2oairelease
   # If tag is empty, the chart appVersion will be used
-  tag: v0.2.4
+  tag: v0.2.6
   pullPolicy: IfNotPresent
 
 # Use an existing ServiceAccount name (keep it simple)
