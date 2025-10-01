@@ -1,6 +1,6 @@
 # Flood Prediction Agent Application
 
-A real-time flood prediction and monitoring agent application built on h2oGPTe and using Nvidia NIM agents. 
+AI-powered flood prediction system featuring h2oGPTe Agent + NVIDIA NIM integration (A2A), NAT pipeline with Nemotron 49B, and real-time flood risk assessment. Part of NVIDIA–H2O.ai AI for Good Blueprint for disaster response and monitoring.
 
 Individual Task Agents: 
 
