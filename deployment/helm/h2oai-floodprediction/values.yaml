@@ -2,7 +2,7 @@
 replicaCount: 1
 
 image:
-  repository: h2oai-floodprediction
+  repository: h2oai-floodprediction-app
   registry: h2oairelease
   # If tag is empty, the chart appVersion will be used
   tag: v0.2.6
