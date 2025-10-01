@@ -1,6 +1,14 @@
-# Flood Prediction Application
+# Flood Prediction Agent Application
 
-A real-time flood prediction and monitoring application built with React + FastAPI, featuring AI-powered analysis and real-time data visualization.
+A real-time flood prediction and monitoring agent application built on h2oGPTe and using Nvidia NIM agents. 
+
+Individual Task Agents: 
+
+- Data Integration Agent
+- Data Analysis Agent
+- Predictive Agent
+- Assistant Chatbot
+- Response Evaluator
 
 ## Quick Start
 
@@ -15,7 +23,7 @@ Create these environment variables in the `core` folder:
 ```bash
 APP_H2OGPTE_URL=""
 APP_H2OGPTE_API_KEY=""
-APP_H2OGPTE_MODEL="claude-sonnet-4-20250514"
+APP_H2OGPTE_MODEL=""
 APP_NVIDIA_API_KEY=""
 ```
 
