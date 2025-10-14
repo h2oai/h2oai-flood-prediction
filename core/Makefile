@@ -1,21 +1,21 @@
 all: build
 
 setup-mcp:
-	python3.11 -m venv venv-mcp
-	./venv-mcp/bin/python3.11 -m pip install --upgrade pip
-	./venv-mcp/bin/python3.11 -m pip install -r requirements-mcp.txt
-	./venv-mcp/bin/python3.11 -m pip install -e .
+	python3 -m venv venv-mcp
+	./venv-mcp/bin/python3 -m pip install --upgrade pip
+	./venv-mcp/bin/python3 -m pip install -r requirements-mcp.txt
+	./venv-mcp/bin/python3 -m pip install -e .
 
 setup: setup-mcp
-	python3.11 -m venv venv
-	./venv/bin/python3.11 -m pip install --upgrade pip wheel build twine tomli pyright pytest pytest-cov black[colorama]
-	./venv/bin/python3.11 -m pip install -e .
+	python3 -m venv venv
+	./venv/bin/python3 -m pip install --upgrade pip wheel build twine tomli pyright pytest pytest-cov black[colorama]
+	./venv/bin/python3 -m pip install -e .
 
 .PHONY: build
 build: clean-build ## Package everything
 	mkdir -p src/flood_prediction/www
 	cp -r ../ui/dist/*  src/flood_prediction/www
-	./venv/bin/python3.11 -m build --wheel
+	./venv/bin/python3 -m build --wheel
 # 	rm -rf src/flood_prediction/www
 
 .PHONY: test
@@ -48,10 +48,10 @@ run-redis: ## Run redis
 	sudo docker run -p 6379:6379 redis
 
 run-mcp:
-	./venv-mcp/bin/python3.11 -m flood_prediction.agents.mcp_unified_flood_server
+	./venv-mcp/bin/python3 -m flood_prediction.agents.mcp_unified_flood_server
 
 build-mcp: clean-build ## Build MCP package with separate venv
 	mkdir -p src/flood_prediction/www
 	cp -r ../ui/dist/*  src/flood_prediction/www
-	./venv-mcp/bin/python3.11 -m pip install -e .
-	./venv-mcp/bin/python3.11 -m build --wheel
+	./venv-mcp/bin/python3 -m pip install -e .
+	./venv-mcp/bin/python3 -m build --wheel

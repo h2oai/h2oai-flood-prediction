@@ -5,7 +5,8 @@
 
 set -e
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+NOTEBOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$NOTEBOOK_DIR/.." && pwd)"
 CORE_DIR="$PROJECT_ROOT/core"
 
 echo "========================================="
@@ -56,16 +57,33 @@ if [ -z "$NVIDIA_API_KEY" ]; then
     exit 1
 fi
 
-# Check if virtual environments exist
-if [ ! -d "$CORE_DIR/venv" ]; then
-    echo -e "${RED}❌ Error: venv not found. Please run 'make setup' first${NC}"
+# Check if virtual environments exist (check both notebook and core directories)
+VENV_DIR=""
+VENV_MCP_DIR=""
+
+if [ -d "$NOTEBOOK_DIR/venv" ]; then
+    VENV_DIR="$NOTEBOOK_DIR/venv"
+elif [ -d "$CORE_DIR/venv" ]; then
+    VENV_DIR="$CORE_DIR/venv"
+else
+    echo -e "${RED}❌ Error: venv not found. Please run './notebooks/setup-venvs.sh' or 'make setup' first${NC}"
     exit 1
 fi
 
-if [ ! -d "$CORE_DIR/venv-mcp" ]; then
-    echo -e "${RED}❌ Error: venv-mcp not found. Please run 'make setup-mcp' first${NC}"
+if [ -d "$NOTEBOOK_DIR/venv-mcp" ]; then
+    VENV_MCP_DIR="$NOTEBOOK_DIR/venv-mcp"
+elif [ -d "$CORE_DIR/venv-mcp" ]; then
+    VENV_MCP_DIR="$CORE_DIR/venv-mcp"
+else
+    echo -e "${RED}❌ Error: venv-mcp not found. Please run './notebooks/setup-venvs.sh' or 'make setup-mcp' first${NC}"
     exit 1
 fi
+
+echo -e "${GREEN}✅ Using venv from: $VENV_DIR${NC}"
+echo -e "${GREEN}✅ Using venv-mcp from: $VENV_MCP_DIR${NC}"
+
+# Create logs directory if it doesn't exist
+mkdir -p "$NOTEBOOK_DIR/logs"
 
 echo -e "${YELLOW}📦 Starting services...${NC}"
 echo ""
@@ -90,12 +108,18 @@ if check_port 8001; then
 fi
 
 echo -e "${YELLOW}🚀 Starting MCP server on port 8001...${NC}"
-cd "$CORE_DIR"
 export NVIDIA_API_KEY=$NVIDIA_API_KEY
-nohup ./venv-mcp/bin/python3.11 -m flood_prediction.agents.mcp_unified_flood_server > ../notebooks/logs/mcp-server.log 2>&1 &
-MCP_PID=$!
-echo $MCP_PID > ../notebooks/mcp-server.pid
-cd "$PROJECT_ROOT"
+if [ -d "$CORE_DIR" ]; then
+    cd "$CORE_DIR"
+    nohup "$VENV_MCP_DIR/bin/python3" -m flood_prediction.agents.mcp_unified_flood_server > "$NOTEBOOK_DIR/logs/mcp-server.log" 2>&1 &
+    MCP_PID=$!
+    cd "$PROJECT_ROOT"
+else
+    cd "$NOTEBOOK_DIR"
+    nohup "$VENV_MCP_DIR/bin/python3" -m flood_prediction.agents.mcp_unified_flood_server > "$NOTEBOOK_DIR/logs/mcp-server.log" 2>&1 &
+    MCP_PID=$!
+fi
+echo $MCP_PID > "$NOTEBOOK_DIR/mcp-server.pid"
 
 wait_for_service 8001 "MCP Server"
 echo ""
@@ -103,12 +127,18 @@ echo ""
 # 3. Start RQ Workers
 echo "3️⃣  Starting RQ Workers..."
 echo -e "${YELLOW}🚀 Starting background worker...${NC}"
-cd "$CORE_DIR"
-nohup env OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES ./venv/bin/rq worker > ../notebooks/logs/worker.log 2>&1 &
-WORKER_PID=$!
-echo $WORKER_PID > ../notebooks/worker.pid
+if [ -d "$CORE_DIR" ]; then
+    cd "$CORE_DIR"
+    nohup env OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES "$VENV_DIR/bin/rq" worker > "$NOTEBOOK_DIR/logs/worker.log" 2>&1 &
+    WORKER_PID=$!
+    cd "$PROJECT_ROOT"
+else
+    cd "$NOTEBOOK_DIR"
+    nohup env OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES "$VENV_DIR/bin/rq" worker > "$NOTEBOOK_DIR/logs/worker.log" 2>&1 &
+    WORKER_PID=$!
+fi
+echo $WORKER_PID > "$NOTEBOOK_DIR/worker.pid"
 echo -e "${GREEN}✅ RQ Worker started (PID: $WORKER_PID)${NC}"
-cd "$PROJECT_ROOT"
 echo ""
 
 # 4. Start FastAPI Server
@@ -120,12 +150,20 @@ if check_port 8000; then
 fi
 
 echo -e "${YELLOW}🚀 Starting FastAPI server on port 8000...${NC}"
-cd "$CORE_DIR"
 export NVIDIA_API_KEY=$NVIDIA_API_KEY
-nohup ./venv/bin/uvicorn flood_prediction.server:app --reload --reload-dir src/flood_prediction/ --host 0.0.0.0 --port 8000 --reload-dir src > ../notebooks/logs/server.log 2>&1 &
-SERVER_PID=$!
-echo $SERVER_PID > ../notebooks/server.pid
-cd "$PROJECT_ROOT"
+if [ -d "$CORE_DIR/src" ]; then
+    # Full repo mode - use reload with src directory
+    cd "$CORE_DIR"
+    nohup "$VENV_DIR/bin/uvicorn" flood_prediction.server:app --reload --reload-dir src/flood_prediction/ --host 0.0.0.0 --port 8000 --reload-dir src > "$NOTEBOOK_DIR/logs/server.log" 2>&1 &
+    SERVER_PID=$!
+    cd "$PROJECT_ROOT"
+else
+    # Standalone mode - no reload
+    cd "$NOTEBOOK_DIR"
+    nohup "$VENV_DIR/bin/uvicorn" flood_prediction.server:app --host 0.0.0.0 --port 8000 > "$NOTEBOOK_DIR/logs/server.log" 2>&1 &
+    SERVER_PID=$!
+fi
+echo $SERVER_PID > "$NOTEBOOK_DIR/server.pid"
 
 wait_for_service 8000 "FastAPI Server"
 echo ""

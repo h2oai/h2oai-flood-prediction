@@ -10,6 +10,58 @@ Individual Task Agents:
 - Assistant Chatbot
 - Response Evaluator
 
+## 📋 Prerequisites
+
+Ensure you have the following installed and configured:
+
+### Required Software
+
+1. **Python 3.11**
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get update
+   sudo apt-get install python3.11 python3.11-venv
+   sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+   sudo update-alternatives --set python3 /usr/bin/python3.11
+   ```
+
+2. **Docker** (for Redis)
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install docker.io
+   sudo systemctl start docker
+   ```
+
+3. **Node.js & npm** (for netcat utility used by scripts)
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install nodejs npm netcat
+   ```
+
+### Required API Keys
+
+#### 1. NVIDIA API Key (Required)
+
+Get your NVIDIA API key from the NVIDIA AI API Catalog:
+
+🔗 **[Get NVIDIA API Key](https://docs.api.nvidia.com/nim/docs/api-quickstart#interacting-through-python)**
+
+Steps:
+1. Visit [https://build.nvidia.com/explore/discover](https://build.nvidia.com/explore/discover)
+2. Sign in or create an NVIDIA account
+3. Navigate to "API Keys" section
+4. Generate a new API key
+5. Copy the key (starts with `nvapi-`)
+
+#### 2. h2oGPTe Credentials
+
+For AutoML and advanced ML features, get h2oGPTe credentials:
+
+🔗 **[Get h2oGPTe Access](https://h2o.ai/platform/enterprise-h2ogpte/)**
+
+---
+
+
 ## Quick Start
 
 ### 1. Initial Setup
