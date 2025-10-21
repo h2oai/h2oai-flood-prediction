@@ -40,7 +40,7 @@ By the end of this guide, you'll have a fully functional flood prediction system
 1. In your Jupyter environment, navigate to the notebook:
 
    ```
-   notebooks/Building_Flood_Prediction_Agents_Nvidia_Launchable.ipynb
+   Building_Flood_Prediction_Agents_Nvidia_Launchable.ipynb
    ```
 
 2. Open the notebook - you'll see it's organized into clear sections
