@@ -42,14 +42,3 @@ run-redis: ## Run redis via docker
 
 run-mcp:
 	cd core && make run-mcp
-
-docker-build: ## Build Docker image
-	docker build --no-cache -t h2oai-floodprediction-app:$(VERSION) .
-
-docker-tag-releasetest: ## Tag image for h2oaireleasetest repo
-	docker tag h2oai-floodprediction-app:$(VERSION) h2oaireleasetest/h2oai-flood-prediction:$(VERSION)
-	docker tag h2oai-floodprediction-app:$(VERSION) h2oaireleasetest/h2oai-flood-prediction:latest
-
-docker-push-releasetest: ## Push image to h2oaireleasetest repo
-	docker push h2oaireleasetest/h2oai-flood-prediction:$(VERSION)
-	docker push h2oaireleasetest/h2oai-flood-prediction:latest
