@@ -38,8 +38,9 @@ By the end of this guide, you'll have a fully functional flood prediction system
 ### Step 1: Open the Notebook
 
 1. In your Jupyter environment, navigate to the notebook:
+
    ```
-   Building_Flood_Prediction_Agents_Nvidia_Launchable.ipynb
+   notebooks/Building_Flood_Prediction_Agents_Nvidia_Launchable.ipynb
    ```
 
 2. Open the notebook - you'll see it's organized into clear sections
@@ -148,7 +149,9 @@ Work with live data from government agencies:
 
 Once deployment is complete (Section 1), you can access the interactive dashboard:
 
-1. Look for **port 8090** in your environment
+1. Goto the "Access" section of your deployed instance on brev.
+2. At the bottom of the page, find "Using Ports" section.
+3. If the cloud provider allows forwarding ports, there will be a clickable link similar to x.x.x.x:8090 under the "TCP/UDP Ports" section.
 2. Open that URL in your browser
 3. You'll see the Flood Prediction Dashboard with:
    - Real-time flood monitoring
@@ -156,8 +159,6 @@ Once deployment is complete (Section 1), you can access the interactive dashboar
    - Agent status and insights
    - Alert management
    - Data visualizations
-
-**Note**: If using NVIDIA Launchable, the port should already be configured and accessible.
 
 ---
 
@@ -168,7 +169,7 @@ Once deployment is complete (Section 1), you can access the interactive dashboar
 **Problem**: After deploying, containers don't show "(healthy)" status
 
 **Solutions**:
-1. Wait 2-3 minutes - services take time to initialize
+1. Wait 20-30 minutes - services take time to initialize
 2. Run this cell again to check status:
    ```python
    !docker ps -a
@@ -198,8 +199,8 @@ Once deployment is complete (Section 1), you can access the interactive dashboar
 3. Re-run the key collection cells if needed
 4. After fixing keys, restart the deployment:
    ```python
-   !docker compose -f ./docker-compose.yml --env-file ./flood_prediction.env down
-   !docker compose -f ./docker-compose.yml --env-file ./flood_prediction.env up -d
+   !docker compose -f ../deployment/nvidia-launchable/docker-compose.yml --env-file ./flood_prediction.env down
+   !docker compose -f ../deployment/nvidia-launchable/docker-compose.yml --env-file ./flood_prediction.env up -d
    ```
 
 ### Out of Memory
