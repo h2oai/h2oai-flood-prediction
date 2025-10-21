@@ -1,0 +1,117 @@
+services:
+  # Main web application (FastAPI + MCP server + RQ worker)
+  web:
+    image: ${WEB_IMAGE_REGISTRY:-h2oairelease}/${WEB_IMAGE_REPOSITORY:-h2oai-floodprediction-app}:${WEB_IMAGE_TAG:-v0.3.0}
+    container_name: flood-prediction-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    networks:
+      - flood-prediction-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      # NVIDIA API Configuration
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:?NVIDIA_API_KEY is required}
+      - APP_NVIDIA_API_KEY=${NVIDIA_API_KEY}
+
+      # H2OGPTE Configuration
+      - H2OGPTE_URL=${H2OGPTE_URL:-https://h2ogpte.cloud-dev.h2o.dev}
+      - H2OGPTE_MODEL=${H2OGPTE_MODEL:-claude-sonnet-4-20250514}
+      - H2OGPTE_API_KEY=${H2OGPTE_API_KEY:?H2OGPTE_API_KEY is required}
+      - APP_H2OGPTE_URL=${H2OGPTE_URL:-https://h2ogpte.cloud-dev.h2o.dev}
+      - APP_H2OGPTE_MODEL=${H2OGPTE_MODEL:-claude-sonnet-4-20250514}
+      - APP_H2OGPTE_API_KEY=${H2OGPTE_API_KEY}
+
+      # Redis Configuration
+      - REDIS_ENABLED=${REDIS_ENABLED:-true}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379
+
+      # NIM LLM Configuration (when enabled via docker-compose.nimllm.yml)
+      - NIM_LLM_BASE_URL=${NIM_LLM_BASE_URL:-}
+
+      # Application Configuration
+      - PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Redis for task queue and caching
+  redis:
+    image: ${REDIS_IMAGE_REGISTRY:-docker.io}/${REDIS_IMAGE_REPOSITORY:-redis}:${REDIS_IMAGE_TAG:-8.2.1}
+    container_name: flood-prediction-redis
+    restart: unless-stopped
+    networks:
+      - flood-prediction-network
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # Jupyter Notebook for interactive demos
+  notebook:
+    image: ${NOTEBOOK_IMAGE_REGISTRY:-h2oairelease}/${NOTEBOOK_IMAGE_REPOSITORY:-h2oai-floodprediction-notebook}:${NOTEBOOK_IMAGE_TAG:-v0.3.0}
+    container_name: flood-prediction-notebook
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "${NOTEBOOK_PORT:-8888}:8888"
+    environment:
+      # Jupyter Configuration
+      # - JUPYTER_TOKEN=${JUPYTER_TOKEN:?JUPYTER_TOKEN is required - generate with: python3 -c "import secrets; print(secrets.token_urlsafe(32))"}
+      - JUPYTER_ENABLE_LAB=yes
+
+      # API Server Connection
+      - API_SERVER_URL=http://web:8000
+
+      # NVIDIA API Configuration
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+      - APP_NVIDIA_API_KEY=${NVIDIA_API_KEY}
+
+      # H2OGPTE Configuration
+      - H2OGPTE_URL=${H2OGPTE_URL:-https://h2ogpte.cloud-dev.h2o.dev}
+      - H2OGPTE_MODEL=${H2OGPTE_MODEL:-claude-sonnet-4-20250514}
+      - H2OGPTE_API_KEY=${H2OGPTE_API_KEY}
+      - APP_H2OGPTE_URL=${H2OGPTE_URL:-https://h2ogpte.cloud-dev.h2o.dev}
+      - APP_H2OGPTE_MODEL=${H2OGPTE_MODEL:-claude-sonnet-4-20250514}
+      - APP_H2OGPTE_API_KEY=${H2OGPTE_API_KEY}
+
+      # Redis Configuration
+      - REDIS_ENABLED=${REDIS_ENABLED:-true}
+
+      # NIM LLM Configuration (when enabled)
+      - NIM_LLM_BASE_URL=${NIM_LLM_BASE_URL:-}
+    networks:
+      - flood-prediction-network
+    command: >
+      start-notebook.py
+      --ServerApp.base_url=/jupyter
+      --IdentityProvider.token=''
+      --ServerApp.allow_password_change=${NOTEBOOK_ALLOW_PASSWORD_CHANGE:-False}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/jupyter"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  redis-data:
+    name: flood-prediction-redis-data
+
+networks:
+  flood-prediction-network:
+    name: flood-prediction-network

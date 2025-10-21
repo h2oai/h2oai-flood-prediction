@@ -30,7 +30,7 @@ from .settings import configure_logging, initialize_app
 from . import db
 from .api import llm_call_stream, get_available_llm_models, get_provider_info, get_all_providers_info
 from .evaluator import evaluator, EvaluationResult
-from .data_sources import fetch_and_update_usgs_data
+from .data_sources import fetch_and_update_usgs_data, fetch_and_store_noaa_alerts
 from .agents import AgentManager
 from .agents.nat_base import FloodPredictionRunner
 
@@ -496,6 +496,8 @@ class Watershed(BaseModel):
     """Watershed information"""
     id: int
     name: str
+    region: Optional[str] = "Texas"
+    region_code: Optional[str] = "TX"
     location_lat: Optional[float] = None
     location_lng: Optional[float] = None
     basin_size_sqmi: Optional[float] = None
@@ -518,6 +520,7 @@ class Alert(BaseModel):
     issued_time: str
     expires_time: Optional[str] = None
     affected_counties: Optional[List[str]] = None
+    data_source: Optional[str] = "sample"
 
 
 class RiskTrendPoint(BaseModel):
@@ -886,23 +889,85 @@ class AnalyticsData(BaseModel):
     flow_comparison: List[FlowComparison]
 
 # =============================================================================
+# Region API Models
+# =============================================================================
+
+class Region(BaseModel):
+    """Region information"""
+    code: str
+    name: str
+    description: str
+    center_lat: float
+    center_lng: float
+    zoom: int
+    watershed_count: int
+
+# =============================================================================
 # Dashboard API Endpoints
 # =============================================================================
 
-@app.get(_api("dashboard"), response_model=DashboardData)
-async def get_dashboard_data():
-    """Get complete dashboard data"""
+@app.get(_api("regions"), response_model=List[Region])
+async def get_available_regions():
+    """Get list of all available regions"""
     try:
-        # Initialize sample data if database is empty
+        from .data_sources import get_available_regions
+        regions = get_available_regions()
+        return [Region(**r) for r in regions]
+    except Exception as e:
+        log.error(f"Failed to get regions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to load regions")
+
+
+@app.get(_api("regions/{region_code}"), response_model=Region)
+async def get_region_details(region_code: str):
+    """Get details for a specific region"""
+    try:
+        from .data_sources import get_region_config
+        config = get_region_config(region_code)
+        if not config:
+            raise HTTPException(status_code=404, detail=f"Region {region_code} not found")
+
+        return Region(
+            code=config["code"],
+            name=config["name"],
+            description=config["description"],
+            center_lat=config["center_lat"],
+            center_lng=config["center_lng"],
+            zoom=config["zoom"],
+            watershed_count=len(config["sites"])
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"Failed to get region details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to load region details")
+
+
+@app.get(_api("dashboard"), response_model=DashboardData)
+async def get_dashboard_data(response: Response, region: Optional[str] = None):
+    """Get complete dashboard data, optionally filtered by region"""
+    try:
+        # Set cache control headers to prevent caching
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+        # Get dashboard data (no auto-population of sample data)
         summary = db.get_dashboard_summary(str(_db_path))
-        if summary['total_watersheds'] == 0:
-            db.populate_sample_data(str(_db_path))
-            summary = db.get_dashboard_summary(str(_db_path))
-        
-        watersheds = db.get_watersheds(str(_db_path))
-        alerts = db.get_active_alerts(str(_db_path))
+        watersheds = db.get_watersheds(str(_db_path), region_code=region)
+
+        # Initialize watersheds from USGS if database is empty
+        if len(watersheds) == 0:
+            from .data_sources import create_watersheds_from_usgs_sites
+            log.info(f"No watersheds found for region {region or 'TX'}, initializing from USGS sites...")
+            result = create_watersheds_from_usgs_sites(str(_db_path), limit=12, region_code=region or "TX")
+            if result['created_count'] > 0:
+                watersheds = db.get_watersheds(str(_db_path), region_code=region)
+                summary = db.get_dashboard_summary(str(_db_path))
+
+        alerts = db.get_active_alerts(str(_db_path), limit=100)  # Increased limit to fetch more alerts
         risk_trends = db.get_risk_trend_data(str(_db_path))
-        
+
         # Generate sample risk trend data if none exists
         if not risk_trends:
             import random
@@ -916,28 +981,31 @@ async def get_dashboard_data():
                     'risk': round(random.uniform(3.0, 7.0), 1),
                     'watersheds': random.randint(8, 12)
                 })
-        
+
         return DashboardData(
             summary=DashboardSummary(**summary),
             watersheds=[Watershed(**w) for w in watersheds],
             alerts=[Alert(**a) for a in alerts],
             risk_trends=[RiskTrendPoint(**r) for r in risk_trends]
         )
-        
+
     except Exception as e:
         log.error(f"Failed to get dashboard data: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load dashboard data")
 
 
-@app.get(_api("dashboard/summary"), response_model=DashboardSummary) 
+@app.get(_api("dashboard/summary"), response_model=DashboardSummary)
 async def get_dashboard_summary():
     """Get dashboard summary statistics"""
     try:
         summary = db.get_dashboard_summary(str(_db_path))
         if summary['total_watersheds'] == 0:
-            db.populate_sample_data(str(_db_path))
+            # Initialize watersheds from USGS if database is empty (no sample data)
+            from .data_sources import create_watersheds_from_usgs_sites
+            log.info("No watersheds found, initializing from USGS sites...")
+            create_watersheds_from_usgs_sites(str(_db_path), limit=12)
             summary = db.get_dashboard_summary(str(_db_path))
-        
+
         return DashboardSummary(**summary)
         
     except Exception as e:
@@ -946,27 +1014,75 @@ async def get_dashboard_summary():
 
 
 @app.get(_api("watersheds"), response_model=List[Watershed])
-async def get_watersheds():
-    """Get all watersheds"""
+async def get_watersheds(region: Optional[str] = None):
+    """Get all watersheds, optionally filtered by region"""
     try:
-        watersheds = db.get_watersheds(str(_db_path))
+        watersheds = db.get_watersheds(str(_db_path), region_code=region)
         return [Watershed(**w) for w in watersheds]
-        
+
     except Exception as e:
         log.error(f"Failed to get watersheds: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load watersheds")
 
 
 @app.get(_api("alerts"), response_model=List[Alert])
-async def get_alerts(limit: int = 10):
+async def get_alerts(limit: int = 100, response: Response = None):
     """Get active alerts"""
     try:
+        # Set cache control headers to prevent caching
+        if response:
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+
         alerts = db.get_active_alerts(str(_db_path), limit)
         return [Alert(**a) for a in alerts]
-        
+
     except Exception as e:
         log.error(f"Failed to get alerts: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load alerts")
+
+
+@app.post(_api("alerts/refresh"))
+async def refresh_alerts(user_id: UserID):
+    """Manually trigger NOAA alerts refresh from real-time API"""
+    try:
+        if not settings.enable_real_time_data:
+            raise HTTPException(status_code=400, detail="Real-time data integration is disabled")
+
+        # Clear expired alerts first
+        db.clear_expired_alerts(str(_db_path))
+
+        # Fetch and store NOAA alerts
+        noaa_results = fetch_and_store_noaa_alerts(str(_db_path))
+
+        return {
+            "status": "success" if noaa_results["success"] else "partial",
+            "message": noaa_results["message"],
+            "alerts_fetched": noaa_results.get("alerts_fetched", 0),
+            "alerts_stored": noaa_results.get("alerts_stored", 0),
+            "alerts_skipped": noaa_results.get("alerts_skipped", 0),
+            "timestamp": noaa_results.get("timestamp")
+        }
+
+    except Exception as e:
+        log.error(f"Failed to refresh alerts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh alerts: {str(e)}")
+
+
+@app.post(_api("alerts/clear-sample"))
+async def clear_sample_alerts_endpoint():
+    """Clear all sample alerts from the database"""
+    try:
+        deleted_count = db.clear_sample_alerts(str(_db_path))
+        return {
+            "status": "success",
+            "message": f"Cleared {deleted_count} sample alerts",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        log.error(f"Failed to clear sample alerts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear sample alerts: {str(e)}")
 
 
 @app.post(_api("dashboard/populate-sample-data"))
@@ -975,7 +1091,7 @@ async def populate_sample_data():
     try:
         db.populate_sample_data(str(_db_path))
         return {"status": "success", "message": "Sample data populated"}
-        
+
     except Exception as e:
         log.error(f"Failed to populate sample data: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to populate sample data")
@@ -1086,11 +1202,13 @@ async def get_analytics_data(
 ):
     """Get complete analytics data"""
     try:
-        # Ensure sample data exists
+        # Initialize watersheds from USGS if database is empty (no sample data)
         summary = db.get_dashboard_summary(str(_db_path))
         if summary['total_watersheds'] == 0:
-            db.populate_sample_data(str(_db_path))
-        
+            from .data_sources import create_watersheds_from_usgs_sites
+            log.info("No watersheds found, initializing from USGS sites...")
+            create_watersheds_from_usgs_sites(str(_db_path), limit=12)
+
         # Get analytics data
         analytics_data = db.get_analytics_data(str(_db_path), time_range, metric)
         

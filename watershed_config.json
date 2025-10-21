@@ -1,0 +1,216 @@
+{
+  "TX": {
+    "name": "Texas",
+    "code": "TX",
+    "description": "Texas Gulf Coast and major river basins",
+    "center_lat": 31.0,
+    "center_lng": -99.0,
+    "zoom": 6,
+    "state_codes": [
+      "TX"
+    ],
+    "sites": [
+      "08167000",
+      "08158000",
+      "08116650",
+      "08057000",
+      "08178000",
+      "08020000",
+      "08041000",
+      "07335500",
+      "08447000",
+      "07227500",
+      "08150000",
+      "08211000"
+    ]
+  },
+  "CA": {
+    "name": "California",
+    "code": "CA",
+    "description": "California rivers and watersheds",
+    "center_lat": 37.0,
+    "center_lng": -120.0,
+    "zoom": 6,
+    "state_codes": [
+      "CA"
+    ],
+    "sites": [
+      "11447650",
+      "11303500",
+      "11446500",
+      "11370500",
+      "11425500",
+      "11389500",
+      "11467000",
+      "11464000",
+      "11407000",
+      "11390000"
+    ]
+  },
+  "FL": {
+    "name": "Florida",
+    "code": "FL",
+    "description": "Florida rivers and coastal watersheds",
+    "center_lat": 28.5,
+    "center_lng": -82.0,
+    "zoom": 6,
+    "state_codes": [
+      "FL"
+    ],
+    "sites": [
+      "02246500",
+      "02315500",
+      "02319800",
+      "02320500",
+      "02358000",
+      "02358700",
+      "02296750",
+      "02294650"
+    ]
+  },
+  "LA": {
+    "name": "Louisiana",
+    "code": "LA",
+    "description": "Louisiana and Mississippi Delta region",
+    "center_lat": 30.5,
+    "center_lng": -91.5,
+    "zoom": 7,
+    "state_codes": [
+      "LA"
+    ],
+    "sites": [
+      "07381600",
+      "07373420",
+      "07374000",
+      "07374525",
+      "07380120",
+      "07386980",
+      "07389000"
+    ]
+  },
+  "MS": {
+    "name": "Mississippi Delta",
+    "code": "MS",
+    "description": "Mississippi River Delta region",
+    "center_lat": 33.0,
+    "center_lng": -90.0,
+    "zoom": 7,
+    "state_codes": [
+      "MS",
+      "AR"
+    ],
+    "sites": [
+      "07289000",
+      "07288650",
+      "07288800",
+      "02479000",
+      "02489500",
+      "07263620"
+    ]
+  },
+  "PNW": {
+    "name": "Pacific Northwest",
+    "code": "PNW",
+    "description": "Washington and Oregon watersheds",
+    "center_lat": 45.5,
+    "center_lng": -122.0,
+    "zoom": 6,
+    "state_codes": [
+      "WA",
+      "OR"
+    ],
+    "sites": [
+      "14211720",
+      "14105700",
+      "12113000",
+      "12200500",
+      "12031000",
+      "14211500",
+      "12108500"
+    ]
+  },
+  "UMW": {
+    "name": "Upper Midwest",
+    "code": "UMW",
+    "description": "Minnesota and Wisconsin watersheds",
+    "center_lat": 45.0,
+    "center_lng": -92.0,
+    "zoom": 6,
+    "state_codes": [
+      "MN",
+      "WI"
+    ],
+    "sites": [
+      "05344500",
+      "05331000",
+      "05211000",
+      "05267000",
+      "05355200",
+      "05120000",
+      "05378500"
+    ]
+  },
+  "NE": {
+    "name": "Northeast",
+    "code": "NE",
+    "description": "New York and Pennsylvania watersheds",
+    "center_lat": 41.5,
+    "center_lng": -76.0,
+    "zoom": 6,
+    "state_codes": [
+      "NY",
+      "PA"
+    ],
+    "sites": [
+      "01531500",
+      "01357500",
+      "01335754",
+      "01463500",
+      "01536500",
+      "01553500",
+      "01578310"
+    ]
+  },
+  "SE": {
+    "name": "Southeast",
+    "code": "SE",
+    "description": "Georgia and South Carolina watersheds",
+    "center_lat": 33.0,
+    "center_lng": -82.0,
+    "zoom": 6,
+    "state_codes": [
+      "GA",
+      "SC"
+    ],
+    "sites": [
+      "02198500",
+      "02169000",
+      "02202500",
+      "02177000",
+      "02228000",
+      "02226500",
+      "02215500"
+    ]
+  },
+  "MW": {
+    "name": "Mountain West",
+    "code": "MW",
+    "description": "Colorado and Utah mountain watersheds",
+    "center_lat": 39.0,
+    "center_lng": -106.0,
+    "zoom": 6,
+    "state_codes": [
+      "CO",
+      "UT"
+    ],
+    "sites": [
+      "09380000",
+      "09163500",
+      "09070500",
+      "09180000",
+      "09306500",
+      "09261000",
+      "09315000"
+    ]
+  }
+}

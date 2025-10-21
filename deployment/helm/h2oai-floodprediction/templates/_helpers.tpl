@@ -47,3 +47,17 @@ If release name contains chart name it will be used as a full name.
 {{ required ".Values.h2ogpte.apiKey is required!" .Values.h2ogpte.apiKey }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+   Create a Client Secret for Jupyter Notebook Token
+*/}}
+{{- define "h2oai-floodprediction.jupyterToken" -}}
+{{- $secret := (lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" .Release.Name)) -}}
+{{- if and (hasKey .Values.notebook "token") (ne .Values.notebook.token nil) -}}
+{{- .Values.notebook.token -}}
+{{- else if $secret -}}
+{{- $secret.data.jupyterToken | b64dec -}}
+{{ else -}}
+{{ required ".Values.notebook.token is required! Set it via: --set notebook.token=<your-token>" .Values.notebook.token }}
+{{- end -}}
+{{- end -}}

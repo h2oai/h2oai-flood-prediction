@@ -5,7 +5,7 @@ image:
   repository: h2oai-floodprediction-app
   registry: h2oairelease
   # If tag is empty, the chart appVersion will be used
-  tag: v0.2.6
+  tag: v1.0.0
   pullPolicy: IfNotPresent
 
 # Use an existing ServiceAccount name (keep it simple)
@@ -54,3 +54,49 @@ h2ogpte:
 
 nvidia:
   apiKey:
+
+# NVIDIA NIM LLM configuration
+# This deploys the NIM model alongside the application
+nimllm:
+  enabled: false
+  image:
+    repository: "nvcr.io/nim/nvidia/llama-3.3-nemotron-super-49b-v1.5"
+    tag: "1.12.0"
+  model:
+    ngcAPISecret: ngc-api  # Reference to the NGC API secret (must be created separately)
+  imagePullSecrets:
+    - name: ngc-secret  # Reference to the NGC Docker registry secret (must be created separately)
+  service:
+    type: ClusterIP
+    openaiPort: 8000
+    annotations: {}
+    labels: {}
+    name: ""  # override the default service name
+
+notebook:
+  enabled: true
+  # If using NodePort, optionally specify the nodePort value
+  nodePort:
+  # Optionally reference existing imagePullSecrets for notebook container
+  imagePullSecrets: []
+  # Authentication token for Jupyter notebook access
+  # REQUIRED: Generate a secure random token before installation
+  #
+  # Quick generation methods:
+  #   Python:  python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+  #   OpenSSL: openssl rand -hex 32
+  #   UUID:    uuidgen
+  #
+  # Set during install: --set notebook.token=<your-secret-token>
+  # Users will need this token to access the notebook at /jupyter
+  token:
+  allowPasswordChange: false
+  image:
+    repository: h2oai-floodprediction-notebook
+    registry: h2oairelease
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 1
+      memory: 1Gi

@@ -40,17 +40,29 @@ const createRiskIcon = (riskLevel: string) => {
     })
 }
 
-// Component to fit map bounds to watersheds
-const FitMapBounds = ({ watersheds }: { watersheds: Watershed[] }) => {
+// Component to control map view (center and zoom or fit bounds)
+const MapController = ({
+    watersheds,
+    center,
+    zoom
+}: {
+    watersheds: Watershed[]
+    center?: [number, number]
+    zoom?: number
+}) => {
     const map = useMap()
-    
+
     useEffect(() => {
-        if (watersheds.length > 0) {
-            const validCoords = watersheds.filter(w => 
-                w.location_lat && w.location_lng && 
+        // If center and zoom are provided, use them
+        if (center && zoom) {
+            map.setView(center, zoom)
+        } else if (watersheds.length > 0) {
+            // Otherwise, fit bounds to watersheds
+            const validCoords = watersheds.filter(w =>
+                w.location_lat && w.location_lng &&
                 !isNaN(w.location_lat) && !isNaN(w.location_lng)
             )
-            
+
             if (validCoords.length > 0) {
                 const bounds = L.latLngBounds(
                     validCoords.map(w => [w.location_lat!, w.location_lng!])
@@ -58,21 +70,25 @@ const FitMapBounds = ({ watersheds }: { watersheds: Watershed[] }) => {
                 map.fitBounds(bounds, { padding: [20, 20] })
             }
         }
-    }, [watersheds, map])
-    
+    }, [watersheds, center, zoom, map])
+
     return null
 }
 
 interface GlobalWatershedMapProps {
     watersheds: Watershed[]
     height?: string
+    center?: [number, number]
+    zoom?: number
     onWatershedClick?: (watershed: Watershed) => void
 }
 
-export default function GlobalWatershedMap({ 
-    watersheds, 
+export default function GlobalWatershedMap({
+    watersheds,
     height = '400px',
-    onWatershedClick 
+    center,
+    zoom,
+    onWatershedClick
 }: GlobalWatershedMapProps) {
     const [mounted, setMounted] = useState(false)
 
@@ -107,11 +123,15 @@ export default function GlobalWatershedMap({
         )
     }
 
+    // Use provided center/zoom or default to Texas
+    const mapCenter = center || [31.0, -100.0]
+    const mapZoom = zoom || 6
+
     return (
         <div style={{ height }} className="rounded-lg overflow-hidden">
             <MapContainer
-                center={[31.0, -100.0]} // Default center on Texas
-                zoom={6}
+                center={mapCenter}
+                zoom={mapZoom}
                 style={{ height: '100%', width: '100%' }}
                 className="rounded-lg"
             >
@@ -120,8 +140,8 @@ export default function GlobalWatershedMap({
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     className="map-tiles"
                 />
-                
-                <FitMapBounds watersheds={validWatersheds} />
+
+                <MapController watersheds={validWatersheds} center={center} zoom={zoom} />
                 
                 {validWatersheds.map((watershed) => (
                     <Marker

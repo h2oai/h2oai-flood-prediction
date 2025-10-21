@@ -45,6 +45,8 @@ pragma user_version = 1;
 create table if not exists watersheds (
     id integer primary key autoincrement,
     name text not null unique,
+    region text not null default 'Texas',
+    region_code text not null default 'TX',
     location_lat real,
     location_lng real,
     basin_size_sqmi real default 0,
@@ -62,7 +64,7 @@ create table if not exists watersheds (
     created_at timestamp default current_timestamp
 );
 
--- Alerts table  
+-- Alerts table
 create table if not exists alerts (
     id integer primary key autoincrement,
     alert_type text not null,
@@ -74,6 +76,7 @@ create table if not exists alerts (
     expires_time timestamp null,
     affected_counties text default '',
     is_active boolean default true,
+    data_source text default 'sample' check(data_source in ('sample', 'noaa', 'nws', 'manual')),
     created_at timestamp default current_timestamp,
     foreign key (watershed_id) references watersheds(id)
 );
@@ -120,8 +123,11 @@ create index if not exists idx_watersheds_last_updated on watersheds(last_update
 create index if not exists idx_watersheds_usgs_site on watersheds(usgs_site_code);
 create index if not exists idx_watersheds_data_source on watersheds(data_source);
 create index if not exists idx_watersheds_api_update on watersheds(last_api_update);
+create index if not exists idx_watersheds_region_code on watersheds(region_code);
+create index if not exists idx_watersheds_region on watersheds(region);
 create index if not exists idx_alerts_active on alerts(is_active, issued_time);
 create index if not exists idx_alerts_watershed on alerts(watershed_id);
+create index if not exists idx_alerts_data_source on alerts(data_source);
 create index if not exists idx_risk_trends_watershed on risk_trends(watershed_id, timestamp);
 create index if not exists idx_risk_trends_timestamp on risk_trends(timestamp);
 create index if not exists idx_system_metrics_name on system_metrics(metric_name, timestamp);
@@ -343,48 +349,126 @@ def get_dashboard_summary(path: str) -> Dict[str, Any]:
             'last_updated': datetime.now(timezone.utc).isoformat()
         }
 
-def get_watersheds(path: str) -> List[Dict[str, Any]]:
-    """Get all watersheds with current data."""
-    rows = execute_query(
-        path,
-        """SELECT id, name, location_lat, location_lng, basin_size_sqmi,
-                  current_streamflow_cfs, current_risk_level, risk_score, 
-                  flood_stage_cfs, trend, trend_rate_cfs_per_hour, 
-                  usgs_site_code, data_source, data_quality, last_api_update, last_updated 
-           FROM watersheds ORDER BY risk_score DESC;"""
-    )
+def get_watersheds(path: str, region_code: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Get all watersheds with current data, optionally filtered by region."""
+    if region_code:
+        rows = execute_query(
+            path,
+            """SELECT id, name, region, region_code, location_lat, location_lng, basin_size_sqmi,
+                      current_streamflow_cfs, current_risk_level, risk_score,
+                      flood_stage_cfs, trend, trend_rate_cfs_per_hour,
+                      usgs_site_code, data_source, data_quality, last_api_update, last_updated
+               FROM watersheds WHERE region_code = ? ORDER BY risk_score DESC;""",
+            (region_code,)
+        )
+    else:
+        rows = execute_query(
+            path,
+            """SELECT id, name, region, region_code, location_lat, location_lng, basin_size_sqmi,
+                      current_streamflow_cfs, current_risk_level, risk_score,
+                      flood_stage_cfs, trend, trend_rate_cfs_per_hour,
+                      usgs_site_code, data_source, data_quality, last_api_update, last_updated
+               FROM watersheds ORDER BY risk_score DESC;"""
+        )
     return [
         {
             'id': row[0],
             'name': row[1],
-            'location_lat': row[2],
-            'location_lng': row[3],
-            'basin_size_sqmi': row[4],
-            'current_streamflow_cfs': row[5],
-            'current_risk_level': row[6],
-            'risk_score': row[7],
-            'flood_stage_cfs': row[8],
-            'trend': row[9],
-            'trend_rate_cfs_per_hour': row[10],
-            'usgs_site_code': row[11],
-            'data_source': row[12],
-            'data_quality': row[13],
-            'last_api_update': row[14],
-            'last_updated': row[15]
+            'region': row[2],
+            'region_code': row[3],
+            'location_lat': row[4],
+            'location_lng': row[5],
+            'basin_size_sqmi': row[6],
+            'current_streamflow_cfs': row[7],
+            'current_risk_level': row[8],
+            'risk_score': row[9],
+            'flood_stage_cfs': row[10],
+            'trend': row[11],
+            'trend_rate_cfs_per_hour': row[12],
+            'usgs_site_code': row[13],
+            'data_source': row[14],
+            'data_quality': row[15],
+            'last_api_update': row[16],
+            'last_updated': row[17]
         }
         for row in rows
     ]
 
-def get_active_alerts(path: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Get active alerts with watershed information."""
+def get_watershed_context(path: str, watershed_id: int) -> str:
+    """Get formatted watershed context for AI prompts."""
     rows = execute_query(
         path,
-        """SELECT a.id, a.alert_type, w.name as watershed_name, a.message, 
-                  a.severity, a.issued_time, a.expires_time, a.affected_counties
+        """SELECT id, name, location_lat, location_lng, basin_size_sqmi,
+                  current_streamflow_cfs, current_risk_level, risk_score,
+                  flood_stage_cfs, trend, trend_rate_cfs_per_hour,
+                  usgs_site_code, data_source, data_quality, last_api_update, last_updated
+           FROM watersheds WHERE id = ?;""",
+        (watershed_id,)
+    )
+
+    if not rows:
+        return f"Watershed ID {watershed_id} not found."
+
+    row = rows[-1]
+    watershed = {
+        'id': row[0],
+        'name': row[1],
+        'location_lat': row[2],
+        'location_lng': row[3],
+        'basin_size_sqmi': row[4],
+        'current_streamflow_cfs': row[5],
+        'current_risk_level': row[6],
+        'risk_score': row[7],
+        'flood_stage_cfs': row[8],
+        'trend': row[9],
+        'trend_rate_cfs_per_hour': row[10],
+        'usgs_site_code': row[11],
+        'data_source': row[12],
+        'data_quality': row[13],
+        'last_api_update': row[14],
+        'last_updated': row[15]
+    }
+
+    # Format context string for AI
+    context = f"""
+Watershed: {watershed['name']}
+ID: {watershed['id']}
+Location: {watershed['location_lat']}, {watershed['location_lng']}
+Basin Size: {watershed['basin_size_sqmi']} sq mi
+Current Streamflow: {watershed['current_streamflow_cfs']:,.1f} CFS
+Flood Stage: {watershed['flood_stage_cfs']:,.1f} CFS
+Risk Level: {watershed['current_risk_level']} (Score: {watershed['risk_score']}/10)
+Trend: {watershed['trend']} ({watershed['trend_rate_cfs_per_hour']:+.1f} CFS/hour)
+USGS Site Code: {watershed['usgs_site_code'] or 'N/A'}
+Data Source: {watershed['data_source']}
+Data Quality: {watershed['data_quality']}
+Last Updated: {watershed['last_updated']}
+"""
+
+    return context.strip()
+
+def get_active_alerts(path: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Get active alerts with watershed information, filtering out expired alerts.
+
+    Prioritizes real alerts (NOAA, NWS) over sample alerts.
+    """
+    rows = execute_query(
+        path,
+        """SELECT a.id, a.alert_type, w.name as watershed_name, a.message,
+                  a.severity, a.issued_time, a.expires_time, a.affected_counties, a.data_source
            FROM alerts a
            JOIN watersheds w ON a.watershed_id = w.id
            WHERE a.is_active = 1
-           ORDER BY a.issued_time DESC
+             AND (a.expires_time IS NULL OR datetime(substr(a.expires_time, 1, 19)) > datetime('now'))
+           ORDER BY
+             CASE a.data_source
+               WHEN 'noaa' THEN 1
+               WHEN 'nws' THEN 2
+               WHEN 'manual' THEN 3
+               WHEN 'sample' THEN 4
+               ELSE 5
+             END,
+             a.issued_time DESC
            LIMIT ?;""",
         (limit,)
     )
@@ -397,7 +481,8 @@ def get_active_alerts(path: str, limit: int = 10) -> List[Dict[str, Any]]:
             'severity': row[4],
             'issued_time': row[5],
             'expires_time': row[6],
-            'affected_counties': row[7].split(',') if row[7] else []
+            'affected_counties': row[7].split(',') if row[7] else [],
+            'data_source': row[8] if len(row) > 8 else 'sample'
         }
         for row in rows
     ]
@@ -423,20 +508,21 @@ def get_risk_trend_data(path: str, hours: int = 24) -> List[Dict[str, Any]]:
         for row in rows
     ]
 
-def insert_watershed(path: str, name: str, lat: float = None, lng: float = None, 
-                    basin_size: float = 0, streamflow: float = 0, risk_level: str = 'Low', 
+def insert_watershed(path: str, name: str, lat: float = None, lng: float = None,
+                    basin_size: float = 0, streamflow: float = 0, risk_level: str = 'Low',
                     risk_score: float = 0, flood_stage: float = 0, trend: str = 'stable',
-                    trend_rate: float = 0, usgs_site_code: str = None, 
-                    data_source: str = 'sample', data_quality: str = 'unknown') -> int:
+                    trend_rate: float = 0, usgs_site_code: str = None,
+                    data_source: str = 'sample', data_quality: str = 'unknown',
+                    region: str = 'Texas', region_code: str = 'TX') -> int:
     """Insert a new watershed."""
     return execute_insert(
         path,
-        """INSERT INTO watersheds (name, location_lat, location_lng, basin_size_sqmi,
+        """INSERT INTO watersheds (name, region, region_code, location_lat, location_lng, basin_size_sqmi,
                                  current_streamflow_cfs, current_risk_level, risk_score,
                                  flood_stage_cfs, trend, trend_rate_cfs_per_hour,
                                  usgs_site_code, data_source, data_quality)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
-        (name, lat, lng, basin_size, streamflow, risk_level, risk_score, flood_stage, 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);""",
+        (name, region, region_code, lat, lng, basin_size, streamflow, risk_level, risk_score, flood_stage,
          trend, trend_rate, usgs_site_code, data_source, data_quality)
     )
 
@@ -467,7 +553,7 @@ def update_watershed_with_api_data(path: str, watershed_id: int, streamflow: flo
         (streamflow, risk_level, risk_score, data_source, data_quality, trend, trend_rate, watershed_id)
     )
 
-def insert_alert(path: str, alert_type: str, watershed_id: int, message: str, 
+def insert_alert(path: str, alert_type: str, watershed_id: int, message: str,
                 severity: str) -> int:
     """Insert a new alert."""
     return execute_insert(
@@ -475,6 +561,25 @@ def insert_alert(path: str, alert_type: str, watershed_id: int, message: str,
         """INSERT INTO alerts (alert_type, watershed_id, message, severity)
            VALUES (?, ?, ?, ?);""",
         (alert_type, watershed_id, message, severity)
+    )
+
+def clear_sample_alerts(path: str) -> int:
+    """Clear all sample alerts from the database."""
+    return execute_update(
+        path,
+        "DELETE FROM alerts WHERE data_source = 'sample';",
+        ()
+    )
+
+def clear_expired_alerts(path: str) -> int:
+    """Clear all expired alerts from the database."""
+    return execute_update(
+        path,
+        """UPDATE alerts SET is_active = 0
+           WHERE is_active = 1
+           AND expires_time IS NOT NULL
+           AND datetime(substr(expires_time, 1, 19)) < datetime('now');""",
+        ()
     )
 
 def insert_risk_trend(path: str, watershed_id: int, risk_score: float, 
@@ -490,60 +595,84 @@ def insert_risk_trend(path: str, watershed_id: int, risk_score: float,
 def populate_sample_data(path: str):
     """Populate database with sample flood prediction data."""
     # Sample watersheds with enhanced data
-    # (name, lat, lng, basin_size, streamflow, risk_level, risk_score, flood_stage, trend, trend_rate)
+    # (name, lat, lng, basin_size, streamflow, risk_level, risk_score, flood_stage, trend, trend_rate, region, region_code)
     watersheds = [
-        ("Guadalupe River at Comfort, TX (USGS 08167000)", 29.7604, -98.2441, 5953, 2850.0, "High", 8.2, 2976.5, "rising", 45.2),
-        ("Colorado River at Austin, TX (USGS 08158000)", 30.2672, -97.7431, 42240, 3200.5, "High", 7.9, 21120.0, "rising", 38.7),
-        ("Brazos River near Rosharon, TX (USGS 08116650)", 29.7633, -95.3633, 45604, 1245.7, "Moderate", 5.8, 6228.5, "rising", 12.4),
-        ("Trinity River at Dallas, TX (USGS 08057000)", 32.7767, -96.7970, 17969, 890.3, "Moderate", 4.7, 8956.5, "falling", -15.3),
-        ("San Antonio River at San Antonio, TX (USGS 08178000)", 29.4241, -98.4936, 4180, 156.8, "Low", 2.1, 780.0, "stable", 0.8),
-        ("Sabine River near Gladewater, TX (USGS 08020000)", 30.2240, -93.8960, 9756, 1890.5, "Moderate", 6.3, 9452.5, "rising", 22.1),
-        ("Neches River at Evadale, TX (USGS 08041000)", 30.0799, -94.1265, 10011, 445.2, "Low", 2.8, 5005.5, "stable", -2.3),
-        ("Red River at Arthur City, TX (USGS 07335500)", 33.4734, -96.9969, 65590, 1567.9, "Moderate", 5.4, 32795.0, "rising", 18.6),
-        ("Pecos River near Sheffield, TX (USGS 08447000)", 31.4207, -103.0567, 44402, 234.1, "Low", 1.9, 22201.0, "falling", -8.7),
-        ("Canadian River near Amarillo, TX (USGS 07227500)", 35.6870, -101.8313, 22866, 678.4, "Low", 3.2, 11433.0, "stable", 5.1),
-        ("Llano River near Junction, TX (USGS 08150000)", 30.7643, -99.0870, 4268, 423.7, "Moderate", 4.1, 2134.0, "rising", 8.9),
-        ("Nueces River near Mathis, TX (USGS 08211000)", 28.0367, -97.0433, 16792, 812.3, "Moderate", 5.1, 8396.0, "rising", 14.7)
+        ("Guadalupe River at Comfort, TX (USGS 08167000)", 29.7604, -98.2441, 5953, 2850.0, "High", 8.2, 2976.5, "rising", 45.2, "Texas", "TX"),
+        ("Colorado River at Austin, TX (USGS 08158000)", 30.2672, -97.7431, 42240, 3200.5, "High", 7.9, 21120.0, "rising", 38.7, "Texas", "TX"),
+        ("Brazos River near Rosharon, TX (USGS 08116650)", 29.7633, -95.3633, 45604, 1245.7, "Moderate", 5.8, 6228.5, "rising", 12.4, "Texas", "TX"),
+        ("Trinity River at Dallas, TX (USGS 08057000)", 32.7767, -96.7970, 17969, 890.3, "Moderate", 4.7, 8956.5, "falling", -15.3, "Texas", "TX"),
+        ("San Antonio River at San Antonio, TX (USGS 08178000)", 29.4241, -98.4936, 4180, 156.8, "Low", 2.1, 780.0, "stable", 0.8, "Texas", "TX"),
+        ("Sabine River near Gladewater, TX (USGS 08020000)", 30.2240, -93.8960, 9756, 1890.5, "Moderate", 6.3, 9452.5, "rising", 22.1, "Texas", "TX"),
+        ("Neches River at Evadale, TX (USGS 08041000)", 30.0799, -94.1265, 10011, 445.2, "Low", 2.8, 5005.5, "stable", -2.3, "Texas", "TX"),
+        ("Red River at Arthur City, TX (USGS 07335500)", 33.4734, -96.9969, 65590, 1567.9, "Moderate", 5.4, 32795.0, "rising", 18.6, "Texas", "TX"),
+        ("Pecos River near Sheffield, TX (USGS 08447000)", 31.4207, -103.0567, 44402, 234.1, "Low", 1.9, 22201.0, "falling", -8.7, "Texas", "TX"),
+        ("Canadian River near Amarillo, TX (USGS 07227500)", 35.6870, -101.8313, 22866, 678.4, "Low", 3.2, 11433.0, "stable", 5.1, "Texas", "TX"),
+        ("Llano River near Junction, TX (USGS 08150000)", 30.7643, -99.0870, 4268, 423.7, "Moderate", 4.1, 2134.0, "rising", 8.9, "Texas", "TX"),
+        ("Nueces River near Mathis, TX (USGS 08211000)", 28.0367, -97.0433, 16792, 812.3, "Moderate", 5.1, 8396.0, "rising", 14.7, "Texas", "TX")
     ]
-    
+
     # Insert watersheds
     watershed_ids = []
-    for name, lat, lng, basin_size, flow, risk, score, flood_stage, trend, trend_rate in watersheds:
+    for name, lat, lng, basin_size, flow, risk, score, flood_stage, trend, trend_rate, region, region_code in watersheds:
         try:
-            watershed_id = insert_watershed(path, name, lat, lng, basin_size, flow, risk, score, flood_stage, trend, trend_rate)
+            watershed_id = insert_watershed(path, name, lat, lng, basin_size, flow, risk, score, flood_stage, trend, trend_rate, region=region, region_code=region_code)
             watershed_ids.append(watershed_id)
         except Exception as e:
             # Handle duplicate names
             print(f"Watershed {name} may already exist: {e}")
-    
-    # Sample alerts (only for watersheds that were inserted)
-    if watershed_ids:
-        alerts = [
-            ("Flash Flood Warning", watershed_ids[0], "Rapid water level rise expected due to upstream rainfall", "High", "Comal,Guadalupe"),
-            ("Flood Watch", watershed_ids[1], "Heavy rainfall upstream causing elevated water levels", "High", "Travis,Bastrop"),
-            ("High Water Advisory", watershed_ids[5], "Water levels approaching minor flood stage", "Moderate", "Sabine,Orange")
-        ]
-        
-        for alert_type, watershed_id, message, severity, counties in alerts:
-            try:
-                insert_alert_with_counties(path, alert_type, watershed_id, message, severity, counties)
-            except Exception as e:
-                print(f"Error inserting alert: {e}")
 
-def insert_alert_with_counties(path: str, alert_type: str, watershed_id: int, message: str, 
+    # NOTE: Sample alerts are no longer created automatically
+    # Real alerts will be fetched from NOAA API when users click "Refresh Alerts"
+    # This prevents confusion between sample and real alert data
+
+def insert_alert_with_counties(path: str, alert_type: str, watershed_id: int, message: str,
                               severity: str, counties: str = "") -> int:
-    """Insert a new alert with affected counties."""
+    """Insert a new alert with affected counties (sample data only)."""
     from datetime import datetime, timedelta
-    
-    expires_time = datetime.now() + timedelta(hours=6)  # Default 6-hour expiration
-    
+
+    # Sample alerts expire in 1 hour so they don't persist indefinitely
+    expires_time = datetime.now() + timedelta(hours=1)
+
     return execute_insert(
         path,
-        """INSERT INTO alerts (alert_type, watershed_id, message, severity, 
-                             expires_time, affected_counties)
-           VALUES (?, ?, ?, ?, ?, ?);""",
+        """INSERT INTO alerts (alert_type, watershed_id, message, severity,
+                             expires_time, affected_counties, data_source)
+           VALUES (?, ?, ?, ?, ?, ?, 'sample');""",
         (alert_type, watershed_id, message, severity, expires_time.isoformat(), counties)
     )
+
+def insert_noaa_alert(path: str, alert_type: str, watershed_id: int, message: str,
+                     severity: str, issued_time: str, expires_time: str,
+                     counties: str = "", noaa_id: str = None) -> Optional[int]:
+    """
+    Insert a NOAA weather alert with full control over timestamps.
+    Returns alert_id if successful, None if duplicate.
+    """
+    from datetime import datetime
+
+    try:
+        # Check for duplicate by NOAA ID or similar alert within 1 hour
+        if noaa_id:
+            existing = execute_query(
+                path,
+                """SELECT id FROM alerts
+                   WHERE message LIKE ? AND datetime(issued_time) > datetime(?, '-1 hour')
+                   LIMIT 1;""",
+                (f"%{noaa_id[:50]}%", issued_time)
+            )
+            if existing:
+                return None  # Skip duplicate
+
+        return execute_insert(
+            path,
+            """INSERT INTO alerts (alert_type, watershed_id, message, severity,
+                                 issued_time, expires_time, affected_counties, data_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'noaa');""",
+            (alert_type, watershed_id, message, severity, issued_time, expires_time, counties)
+        )
+    except Exception as e:
+        print(f"Error inserting NOAA alert: {e}")
+        return None
 
 # =============================================================================
 # Analytics Data Functions

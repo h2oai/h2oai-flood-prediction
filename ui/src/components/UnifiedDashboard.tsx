@@ -20,7 +20,7 @@ import {
     ChevronUp
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { dashboardApi, analyticsApi, aiApi, jobApi, agentsApi, type DashboardData, type AnalyticsData, type AgentSummary, type AgentInsight } from '@/lib/api'
+import { dashboardApi, analyticsApi, aiApi, agentsApi, regionsApi, type DashboardData, type AnalyticsData, type AgentSummary, type AgentInsight, type Region } from '@/lib/api'
 import GlobalWatershedMap from '@/components/GlobalWatershedMap'
 import { TubelightNavbar } from '@/components/TubelightNavbar'
 import ReactMarkdown from 'react-markdown'
@@ -35,6 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import h2oIcon from '@/assets/h2o.ico'
 
 interface Message {
@@ -456,7 +457,7 @@ const MetricCard = ({ title, value, change, icon: Icon, trend }: {
     value: string | number
     change?: string
     icon: any
-    trend?: 'up' | 'down'
+    trend?: 'up' | 'down' | 'stable'
 }) => (
     <Card className="bg-card backdrop-blur-sm border-border">
         <CardContent className="p-4">
@@ -511,6 +512,11 @@ export default function UnifiedDashboard() {
     const [refreshingData, setRefreshingData] = useState(false)
     const [refreshStatus, setRefreshStatus] = useState<string | null>(null)
 
+    // Region selection state
+    const [availableRegions, setAvailableRegions] = useState<Region[]>([])
+    const [selectedRegion, setSelectedRegion] = useState<string>(regionsApi.getCurrentRegion())
+    const [currentRegionInfo, setCurrentRegionInfo] = useState<Region | null>(null)
+
     // Enhanced AI Chat states
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -543,6 +549,7 @@ I can help you with:
     const [temperature, setTemperature] = useState<number>(0.7)
     const [maxTokens, setMaxTokens] = useState<number>(8192*10)
     const [useAgents, _setUseAgents] = useState(false)
+    const [showThinking, setShowThinking] = useState(true)
     const [selectedWatershed, setSelectedWatershed] = useState('')
     const [loadingProviders, setLoadingProviders] = useState(true)
 
@@ -567,9 +574,9 @@ I can help you with:
             setLoading(true)
             setError(null)
 
-            // Fetch dashboard, analytics, insights, and agent data
+            // Fetch dashboard, analytics, insights, and agent data with region filter
             const [dashboardData, analyticsData, insightsData, agentSummary, agentInsights] = await Promise.all([
-                dashboardApi.getDashboardData(),
+                dashboardApi.getDashboardData(selectedRegion),
                 analyticsApi.getAnalyticsData('24h', 'risk_score'),
                 dashboardApi.getDashboardInsights(),
                 agentsApi.getSummary().catch(() => null), // Don't fail if agents are unavailable
@@ -589,6 +596,33 @@ I can help you with:
         }
     }
 
+    // Fetch available regions on mount
+    const fetchRegions = async () => {
+        try {
+            const regions = await regionsApi.getRegions()
+            setAvailableRegions(regions)
+
+            // Get current region details
+            const regionInfo = regions.find(r => r.code === selectedRegion)
+            setCurrentRegionInfo(regionInfo || regions[0])
+        } catch (err) {
+            console.error('Failed to fetch regions:', err)
+        }
+    }
+
+    // Handle region change
+    const handleRegionChange = (regionCode: string) => {
+        setSelectedRegion(regionCode)
+        regionsApi.setCurrentRegion(regionCode)
+
+        // Update current region info
+        const regionInfo = availableRegions.find(r => r.code === regionCode)
+        setCurrentRegionInfo(regionInfo || null)
+
+        // Refresh dashboard data with new region
+        fetchDashboardData()
+    }
+
     // Load NAT agents
     const loadNATAgents = async () => {
         try {
@@ -604,9 +638,39 @@ I can help you with:
     }
 
     useEffect(() => {
+        fetchRegions()
         fetchDashboardData()
         loadAIProviders()
         loadNATAgents()
+    }, [])
+
+    // Refetch data when region changes
+    useEffect(() => {
+        if (availableRegions.length > 0) {
+            fetchDashboardData()
+        }
+    }, [selectedRegion])
+
+    // Auto-refresh insights every 5 seconds to show live freshness decay
+    useEffect(() => {
+        const intervalId = setInterval(async () => {
+            try {
+                // Only refresh insights/agent data to show live freshness updates
+                const [newInsights, newAgentSummary, newAgentInsights] = await Promise.all([
+                    dashboardApi.getDashboardInsights(),
+                    agentsApi.getSummary(),
+                    agentsApi.getInsights()
+                ])
+                setInsightsData(newInsights)
+                setAgentSummary(newAgentSummary)
+                setAgentInsights(newAgentInsights?.insights || null)
+            } catch (err) {
+                // Silently fail to avoid cluttering console
+                console.debug('Auto-refresh skipped:', err)
+            }
+        }, 5000) // Refresh every 5 seconds
+
+        return () => clearInterval(intervalId)
     }, [])
 
     // Load AI providers and models
@@ -659,37 +723,64 @@ I can help you with:
     const handleUsgsRefresh = async () => {
         try {
             setRefreshingData(true)
-            setRefreshStatus('Starting USGS data refresh...')
+            setRefreshStatus('Collecting data from all sources...')
 
-            const response = await dashboardApi.refreshUsgsData()
+            // Call agents/collect-data to pull USGS, NOAA, and Weather data
+            const response = await agentsApi.collectExternalData()
 
             if (response.status === 'success') {
-                setRefreshStatus('USGS data refresh started')
+                setRefreshStatus('Refreshing NOAA flood alerts...')
 
-                if (response.job_id) {
-                    await jobApi.pollJob(response.job_id, (job) => {
-                        if (job.status) {
-                            setRefreshStatus(job.status)
-                        }
-
-                        if (job.state === 'finished') {
-                            setRefreshStatus('USGS data refresh completed')
-                            setRefreshingData(false)
-                            fetchDashboardData()
-                            setTimeout(() => {
-                                setRefreshStatus(null)
-                            }, 2000)
-                        } else if (job.state === 'failed') {
-                            setRefreshStatus(`Refresh failed: ${job.exc_info || 'Unknown error'}`)
-                            setRefreshingData(false)
-                            setTimeout(() => setRefreshStatus(null), 5000)
-                        }
-                    })
+                // Also refresh NOAA alerts
+                try {
+                    const alertsResponse = await dashboardApi.refreshAlerts()
+                    if (alertsResponse.status === 'success') {
+                        setRefreshStatus(`Data collection completed! Stored ${alertsResponse.alerts_stored} new alerts`)
+                    }
+                } catch (alertErr) {
+                    console.warn('Alert refresh failed, but continuing:', alertErr)
+                    setRefreshStatus('Data collection completed (alerts refresh had issues)')
                 }
+
+                // Refresh both dashboard and agent insights to show updated freshness
+                await Promise.all([
+                    fetchDashboardData(),
+                    handleRefreshAgents()
+                ])
+                setRefreshingData(false)
+                setTimeout(() => {
+                    setRefreshStatus(null)
+                }, 3000)
             }
         } catch (err) {
-            console.error('USGS refresh failed:', err)
+            console.error('Data refresh failed:', err)
             setRefreshStatus(`Refresh failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+            setRefreshingData(false)
+            setTimeout(() => setRefreshStatus(null), 5000)
+        }
+    }
+
+    const handleAlertsRefresh = async () => {
+        try {
+            setRefreshingData(true)
+            setRefreshStatus('Fetching latest flood alerts from NOAA...')
+
+            const response = await dashboardApi.refreshAlerts()
+
+            if (response.status === 'success' || response.status === 'partial') {
+                setRefreshStatus(`✓ Fetched ${response.alerts_fetched} alerts, stored ${response.alerts_stored} new alerts`)
+
+                // Refresh dashboard to show new alerts
+                await fetchDashboardData()
+
+                setRefreshingData(false)
+                setTimeout(() => {
+                    setRefreshStatus(null)
+                }, 3000)
+            }
+        } catch (err) {
+            console.error('Alerts refresh failed:', err)
+            setRefreshStatus(`Alert refresh failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
             setRefreshingData(false)
             setTimeout(() => setRefreshStatus(null), 5000)
         }
@@ -965,7 +1056,7 @@ I can help you with:
     if (loading && !dashboardData) {
         return (
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
         )
     }
@@ -1015,13 +1106,39 @@ I can help you with:
             {/* Header */}
             <div className="border-b border-border">
                 {/* Navigation and Status Row */}
-                <div className="flex items-center justify-between px-6 pb-4">
-                    <div className="flex items-center justify-center py-4">
+                <div className="flex items-center px-6 pb-4">
+                    <div className="flex items-center space-x-4 py-4 flex-1">
                         <img src={h2oIcon} alt="H2O.ai" className="h-8 w-8 mr-2" />
                         <h1 className="text-2xl font-bold text-white">Flood Prediction</h1>
+
+                        {/* Region Selector */}
+                        <div className="flex items-center space-x-2 ml-4">
+                            <MapPin className="h-4 w-4 text-yellow-400" />
+                            <Select value={selectedRegion} onValueChange={handleRegionChange}>
+                                <SelectTrigger className="w-[200px] bg-gray-900/80 border-yellow-500/30 text-white hover:bg-gray-900 hover:border-yellow-500/50">
+                                    <SelectValue>
+                                        {currentRegionInfo ? currentRegionInfo.name : 'Select Region'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="bg-gray-900 border-yellow-500/30 z-[9999]">
+                                    {availableRegions.map((region) => (
+                                        <SelectItem
+                                            key={region.code}
+                                            value={region.code}
+                                            className="text-white hover:bg-yellow-500/10 focus:bg-yellow-500/20"
+                                        >
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{region.name}</span>
+                                                <span className="text-xs text-gray-400">{region.watershed_count} watersheds</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     {/* Center - Navigation Tabs */}
-                    <div className="flex-1 flex justify-center">
+                    <div className="flex justify-center absolute left-1/2 transform -translate-x-1/2">
                         <TubelightNavbar
                             items={[
                                 { id: 1, name: 'Live Map', desc: 'Real-time watershed monitoring', icon: MapPin },
@@ -1033,8 +1150,8 @@ I can help you with:
                             onTabChange={setActiveTab}
                         />
                     </div>
-                    {/* Left side - Status buttons */}
-                    <div className="flex items-center space-x-3">
+                    {/* Right side - Status buttons */}
+                    <div className="flex items-center space-x-3 flex-1 justify-end">
 
                         {/* Agents Online Status */}
                         <HoverCard>
@@ -1074,7 +1191,7 @@ I can help you with:
                                                         Refreshing...
                                                     </>
                                                 ) : (
-                                                    'Pull Latest Data'
+                                                    'Pull Latest Data from All Sources'
                                                 )}
                                             </Button>
                                         </>
@@ -1294,6 +1411,8 @@ I can help you with:
                                         <GlobalWatershedMap
                                             watersheds={dashboardData.watersheds}
                                             height="100%"
+                                            center={currentRegionInfo ? [currentRegionInfo.center_lat, currentRegionInfo.center_lng] : undefined}
+                                            zoom={currentRegionInfo?.zoom}
                                             onWatershedClick={(watershed) => {
                                                 console.log('Viewing details for:', watershed.name);
                                             }}
@@ -1383,15 +1502,40 @@ I can help you with:
                                     <div className="p-6 h-full overflow-y-auto">
                                         <div className="flex justify-between items-center mb-4">
                                             <h3 className="text-xl font-semibold text-amber-100">🚨 Emergency Flood Alerts</h3>
-                                            <div className="flex items-center space-x-2 text-sm">
-                                                <div className="text-amber-300">Last updated:</div>
-                                                <div className="text-amber-100">{new Date().toLocaleTimeString()}</div>
+                                            <div className="flex items-center space-x-3">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleAlertsRefresh}
+                                                    disabled={refreshingData}
+                                                    className="border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white px-3 py-1.5 text-xs font-medium transition-all duration-200 hover:scale-105"
+                                                >
+                                                    {refreshingData ? (
+                                                        <>
+                                                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                                            Refreshing...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <RefreshCw className="h-3 w-3 mr-1" />
+                                                            Refresh Alerts
+                                                        </>
+                                                    )}
+                                                </Button>
+                                                <div className="flex items-center space-x-2 text-sm">
+                                                    <div className="text-amber-300">Last updated:</div>
+                                                    <div className="text-amber-100">{new Date().toLocaleTimeString()}</div>
+                                                </div>
                                             </div>
                                         </div>
 
                                         {dashboardData.alerts.length > 0 ? (
-                                            <div className="space-y-4">
-                                                {dashboardData.alerts.slice(0, 8).map((alert, index) => (
+                                            <>
+                                                <div className="text-sm text-amber-300 mb-3">
+                                                    Showing {Math.min(dashboardData.alerts.length, 8)} of {dashboardData.alerts.length} active alerts
+                                                </div>
+                                                <div className="space-y-4">
+                                                    {dashboardData.alerts.slice(0, 8).map((alert, index) => (
                                                     <Card key={alert.alert_id || index} className={`${
                                                         alert.severity === 'High' ? 'border-l-amber-600 bg-amber-900/20 border-l-4' :
                                                         alert.severity === 'Moderate' ? 'border-l-yellow-500 bg-yellow-900/15 border-l-4' :
@@ -1427,14 +1571,93 @@ I can help you with:
                                                             </div>
                                                         </CardContent>
                                                     </Card>
-                                                ))}
-                                            </div>
+                                                    ))}
+                                                </div>
+                                            </>
                                         ) : (
-                                            <div className="text-center py-12">
-                                                <div className="text-6xl mb-4">✅</div>
-                                                <h4 className="text-xl font-semibold text-amber-100 mb-2">All Clear</h4>
-                                                <p className="text-amber-300">No active flood alerts for Texas watersheds</p>
-                                                <p className="text-sm text-amber-400 mt-2">System monitoring continues 24/7</p>
+                                            <div className="flex flex-col items-center justify-center py-12 px-4">
+                                                {/* SVG Illustration - Calm Water/Shield */}
+                                                <svg
+                                                    width="200"
+                                                    height="200"
+                                                    viewBox="0 0 200 200"
+                                                    fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="mb-6 opacity-80"
+                                                >
+                                                    {/* Shield Background */}
+                                                    <path
+                                                        d="M100 20C100 20 40 40 40 80C40 120 60 160 100 180C140 160 160 120 160 80C160 40 100 20 100 20Z"
+                                                        fill="url(#shieldGradient)"
+                                                        stroke="#f59e0b"
+                                                        strokeWidth="3"
+                                                    />
+
+                                                    {/* Water Waves - Calm */}
+                                                    <path
+                                                        d="M60 100 Q70 95 80 100 T100 100 T120 100 T140 100"
+                                                        stroke="#3b82f6"
+                                                        strokeWidth="2.5"
+                                                        fill="none"
+                                                        opacity="0.6"
+                                                    />
+                                                    <path
+                                                        d="M60 110 Q70 105 80 110 T100 110 T120 110 T140 110"
+                                                        stroke="#60a5fa"
+                                                        strokeWidth="2"
+                                                        fill="none"
+                                                        opacity="0.5"
+                                                    />
+                                                    <path
+                                                        d="M60 120 Q70 115 80 120 T100 120 T120 120 T140 120"
+                                                        stroke="#93c5fd"
+                                                        strokeWidth="1.5"
+                                                        fill="none"
+                                                        opacity="0.4"
+                                                    />
+
+                                                    {/* Checkmark */}
+                                                    <path
+                                                        d="M75 90 L90 105 L125 70"
+                                                        stroke="#fbbf24"
+                                                        strokeWidth="8"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        fill="none"
+                                                    />
+
+                                                    {/* Gradient Definitions */}
+                                                    <defs>
+                                                        <linearGradient id="shieldGradient" x1="100" y1="20" x2="100" y2="180" gradientUnits="userSpaceOnUse">
+                                                            <stop offset="0%" stopColor="#78350f" stopOpacity="0.3" />
+                                                            <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.1" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                </svg>
+
+                                                <h4 className="text-2xl font-semibold text-amber-100 mb-3">All Clear</h4>
+                                                <p className="text-amber-300 text-lg mb-2">No active flood alerts for Texas watersheds</p>
+                                                <p className="text-sm text-amber-400/70 mb-6">System monitoring continues 24/7</p>
+
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleAlertsRefresh}
+                                                    disabled={refreshingData}
+                                                    className="border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white transition-all"
+                                                >
+                                                    {refreshingData ? (
+                                                        <>
+                                                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                                            Checking...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <RefreshCw className="h-4 w-4 mr-2" />
+                                                            Check for New Alerts
+                                                        </>
+                                                    )}
+                                                </Button>
                                             </div>
                                         )}
                                     </div>
@@ -1668,9 +1891,18 @@ I can help you with:
                             />
                             <MetricCard
                                 title="🎯 Risk Assessment"
-                                value={`${analyticsData.summary.avg_risk_score.toFixed(1)}/10`}
-                                change={`${insightsData.data_quality_score.toFixed(0)}% data quality`}
-                                trend={analyticsData.summary.high_risk_count > dashboardData.summary.low_risk_watersheds ? "up" : "down"}
+                                value={
+                                    agentInsights?.risk_analyzer?.find(i => i.title === '🎯 Overall Risk Level')?.value ||
+                                    `${analyticsData.summary.avg_risk_score.toFixed(1)}/10`
+                                }
+                                change={
+                                    agentInsights?.data_collector?.find(i => i.title === '📊 Data Quality')?.value ||
+                                    `${insightsData.data_quality_score.toFixed(0)}% data quality`
+                                }
+                                trend={
+                                    agentInsights?.risk_analyzer?.find(i => i.title === '🎯 Overall Risk Level')?.trend ||
+                                    (analyticsData.summary.high_risk_count > dashboardData.summary.low_risk_watersheds ? "up" : "down")
+                                }
                                 icon={Activity}
                             />
                         </div>
@@ -1737,7 +1969,8 @@ I can help you with:
 
                         {/* Normal Chat Controls */}
                         {chatMode === 'normal' && (
-                            <div className="flex items-center space-x-2 text-xs mb-3">
+                            <>
+                            <div className="flex items-center space-x-2 text-xs mb-2">
                             <Select value={selectedProvider} onValueChange={setSelectedProvider} disabled={loadingProviders}>
                                 <SelectTrigger className="w-22 bg-card text-card-foreground border-border text-m h-8">
                                     <SelectValue placeholder="Provider" />
@@ -1764,6 +1997,15 @@ I can help you with:
                                     </SelectContent>
                                 </Select>
                             )}
+                            </div>
+
+                            <div className="flex items-center space-x-2 text-xs mb-2">
+                                <span className="text-muted-foreground text-sm">Show Thinking</span>
+                                <Switch
+                                    checked={showThinking}
+                                    onCheckedChange={setShowThinking}
+                                />
+                            </div>
 
                             {/* <label className="flex items-center space-x-1">
                                 <Input
@@ -1774,7 +2016,7 @@ I can help you with:
                                 />
                                 <span className="text-gray-400">Agent</span>
                             </label> */}
-                            </div>
+                            </>
                         )}
 
                         {/* NAT Agent Controls */}
@@ -1857,7 +2099,7 @@ I can help you with:
                                         <SelectTrigger className="w-full bg-card text-card-foreground border-border text-xs h-7">
                                             <SelectValue placeholder="No specific watershed" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="z-[9999]">
                                             <SelectItem value="none">No specific watershed</SelectItem>
                                             {dashboardData?.watersheds.map(watershed => (
                                                 <SelectItem key={watershed.id} value={watershed.name}>
@@ -1924,14 +2166,94 @@ I can help you with:
                                         {/* Message Content */}
                                         <div className="mb-2">
                                             {message.role === 'assistant' ? (
-                                                <div className="prose prose-sm prose-invert max-w-none">
-                                                    <ReactMarkdown
-                                                        remarkPlugins={[remarkGfm]}
-                                                        rehypePlugins={[rehypeSanitize]}
-                                                    >
-                                                        {message.content || (message.isStreaming ? '⚡ Thinking...' : '')}
-                                                    </ReactMarkdown>
-                                                </div>
+                                                (() => {
+                                                    const content = message.content || (message.isStreaming ? '⚡ Thinking...' : '');
+                                                    const thinkingBlockRegex = /<think>([\s\S]*?)<\/think>/g;
+                                                    const parts: { type: 'thinking' | 'answer', content: string }[] = [];
+                                                    let lastIndex = 0;
+                                                    let match;
+
+                                                    // Parse content to separate thinking blocks from actual answer
+                                                    while ((match = thinkingBlockRegex.exec(content)) !== null) {
+                                                        // Add content before the thinking block
+                                                        if (match.index > lastIndex) {
+                                                            parts.push({
+                                                                type: 'answer',
+                                                                content: content.slice(lastIndex, match.index)
+                                                            });
+                                                        }
+                                                        // Add the thinking block
+                                                        parts.push({
+                                                            type: 'thinking',
+                                                            content: match[1]
+                                                        });
+                                                        lastIndex = match.index + match[0].length;
+                                                    }
+                                                    // Add remaining content after last thinking block
+                                                    if (lastIndex < content.length) {
+                                                        parts.push({
+                                                            type: 'answer',
+                                                            content: content.slice(lastIndex)
+                                                        });
+                                                    }
+
+                                                    // If no thinking blocks found, render normally
+                                                    if (parts.length === 0) {
+                                                        return (
+                                                            <div className="prose prose-sm prose-invert max-w-none">
+                                                                <ReactMarkdown
+                                                                    remarkPlugins={[remarkGfm]}
+                                                                    rehypePlugins={[rehypeSanitize]}
+                                                                >
+                                                                    {content}
+                                                                </ReactMarkdown>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    // Render parts with different styles
+                                                    return (
+                                                        <>
+                                                            {parts.map((part, index) => (
+                                                                part.type === 'thinking' ? (
+                                                                    showThinking ? (
+                                                                        <div
+                                                                            key={index}
+                                                                            className="mb-3 p-3 rounded border border-muted-foreground/20 bg-muted/30"
+                                                                        >
+                                                                            <div className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+                                                                                <span>💭</span> Thinking Process
+                                                                            </div>
+                                                                            <div className="prose prose-sm prose-invert max-w-none text-muted-foreground/90 italic">
+                                                                                <ReactMarkdown
+                                                                                    remarkPlugins={[remarkGfm]}
+                                                                                    rehypePlugins={[rehypeSanitize]}
+                                                                                >
+                                                                                    {part.content}
+                                                                                </ReactMarkdown>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div key={index} className="mb-2 text-muted-foreground text-xs italic">
+                                                                            ⚡ Thinking...
+                                                                        </div>
+                                                                    )
+                                                                ) : (
+                                                                    part.content.trim() && (
+                                                                        <div key={index} className="prose prose-sm prose-invert max-w-none">
+                                                                            <ReactMarkdown
+                                                                                remarkPlugins={[remarkGfm]}
+                                                                                rehypePlugins={[rehypeSanitize]}
+                                                                            >
+                                                                                {part.content}
+                                                                            </ReactMarkdown>
+                                                                        </div>
+                                                                    )
+                                                                )
+                                                            ))}
+                                                        </>
+                                                    );
+                                                })()
                                             ) : (
                                                 <div className="whitespace-pre-wrap">
                                                     {message.content}

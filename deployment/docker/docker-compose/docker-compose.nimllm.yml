@@ -1,0 +1,59 @@
+version: '3.8'
+
+# Docker Compose override file for enabling NVIDIA NIM LLM
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.nimllm.yml up
+#
+# Prerequisites:
+# 1. NVIDIA GPU with appropriate drivers
+# 2. NVIDIA Container Toolkit installed
+# 3. NGC API key (set NGC_API_KEY in .env)
+# 4. Docker login to nvcr.io:
+#    docker login nvcr.io
+#    Username: $oauthtoken
+#    Password: <NGC_API_KEY>
+
+services:
+  # NVIDIA NIM LLM inference service
+  nimllm:
+    image: ${NIMLLM_IMAGE:-nvcr.io/nim/nvidia/llama-3_3-nemotron-super-49b-v1_5:1.12.0}
+    container_name: flood-prediction-nimllm
+    restart: unless-stopped
+    runtime: nvidia
+    network_mode: "host"
+    environment:
+      - NGC_API_KEY=${NGC_API_KEY:?NGC_API_KEY is required for NIM LLM}
+      - NIM_HTTP_API_PORT=${NIMLLM_PORT:-8989}
+    volumes:
+      # Cache directory for model storage (~50GB+ required)
+      - ${LOCAL_NIM_CACHE:-~/.cache/nim}:/opt/nim/.cache
+    # User mapping for proper cache permissions
+    user: "${UID:-1000}:${GID:-1000}"
+    # Shared memory size required for large model inference
+    shm_size: 16gb
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s  # NIM takes time to load the model
+
+  # Update web service to use NIM LLM
+  web:
+    network_mode: "host"
+    environment:
+      - NIM_LLM_BASE_URL=http://localhost:8989/v1
+    depends_on:
+      - redis
+      - nimllm
+
+  # Update notebook service to use NIM LLM
+  # notebook:
+  #   environment:
+  #     - NIM_LLM_BASE_URL=http://nimllm:8000/v1

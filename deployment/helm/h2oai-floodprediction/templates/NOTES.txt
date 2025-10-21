@@ -1,30 +1,141 @@
-1. Install the chart
+Thank you for installing {{ .Chart.Name }}!
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
 
-   helm install <release-name> ./h2oai-flood-prediction --namespace <ns> --create-namespace
+================================================================================
+{{- if .Values.notebook.enabled }}
 
-2. Common overrides
+SECURITY NOTE:
 
-   - Change image tag:
-     --set image.tag=v0.2.1
+   The Jupyter notebook is enabled and requires authentication.
+   Keep your token secure and never commit it to version control.
+   To disable the notebook, set: --set notebook.enabled=false
 
-   - Use a different host:
-     --set ingress.hosts[0].host=my.domain
+{{- end }}
+================================================================================
 
-   - Disable ingress:
-     --set ingress.enabled=false
+ACCESS YOUR APPLICATION:
 
-   - Provide secrets (plaintext):
-     --set env.secrets.APP_NVIDIA_API_KEY=abc123 --set env.secrets.H2OGPTE_API_KEY=xyz
+{{- if .Values.ingress.enabled }}
 
-3. Registry auth
+   Web UI:       http://{{ .Values.ingress.hostName }}/
+   {{- if .Values.notebook.enabled }}
+   JupyterLab:   http://{{ .Values.ingress.hostName }}/jupyter
+                 Token: <the-token-you-provided-during-install>
+   {{- end }}
+
+{{- else }}
+
+   Port-forward to access locally:
+
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-web 8080:80
+   Web UI: http://localhost:8080
+   {{- if .Values.notebook.enabled }}
+
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-notebook 8888:80
+   JupyterLab: http://localhost:8888
+   Token: <the-token-you-provided-during-install>
+   {{- end }}
+
+{{- end }}
+
+{{- if .Values.notebook.enabled }}
+
+JUPYTER NOTEBOOK TOKEN:
+
+   Forgot your token? Retrieve it with:
+   kubectl get secret {{ .Release.Name }}-secrets -n {{ .Release.Namespace }} \
+     -o jsonpath='{.data.jupyterToken}' | base64 -d && echo
+
+   IMPORTANT: This token grants full access to the notebook environment.
+   - Treat it like a password
+   - Rotate it periodically using: helm upgrade --set notebook.token=<new-token>
+   - Never expose it in logs or commit it to source control
+
+{{- end }}
+
+================================================================================
+
+QUICK REFERENCE:
+
+1. Install example:
+{{- if .Values.notebook.enabled }}
+
+   REQUIRED: Generate a secure token for notebook authentication:
+   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+   Then install:
+{{- end }}
+   helm install <release-name> ./h2oai-floodprediction --namespace <ns> --create-namespace \
+     --set nvidia.apiKey=<your-nvidia-api-key> \
+     --set h2ogpte.apiKey=<your-h2ogpte-api-key>{{- if .Values.notebook.enabled }} \
+     --set notebook.token=<your-secure-token>{{- end }}
+{{- if .Values.notebook.enabled }}
+
+   To disable notebook: add --set notebook.enabled=false (token not required)
+{{- end }}
+
+2. Check deployment status
+
+   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+3. View logs
+
+   Web application:
+   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }},app.kubernetes.io/component=web
+   {{- if .Values.notebook.enabled }}
+
+   Jupyter notebook:
+   kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ .Chart.Name }},app.kubernetes.io/component=notebook
+   {{- end }}
+
+4. Update your deployment
+
+   helm upgrade {{ .Release.Name }} ./h2oai-floodprediction \
+     --reuse-values
+{{- if .Values.notebook.enabled }}
+
+   To rotate notebook token (recommended periodically):
+   helm upgrade {{ .Release.Name }} ./h2oai-floodprediction \
+     --reuse-values \
+     --set notebook.token=<new-secure-token>
+{{- end }}
+
+5. Common configuration overrides
+
+   Change image tag:
+   --set image.tag=v0.2.6
+
+   Use a different hostname:
+   --set ingress.hostName=my.domain.com
+
+   Disable ingress and use NodePort:
+   --set ingress.enabled=false \
+   --set service.type=NodePort \
+   --set service.nodePort=30080 \
+   --set notebook.nodePort=30888
+
+   Disable notebook:
+   --set notebook.enabled=false
+
+   Change notebook image tag:
+   --set notebook.image.tag=v0.1.0
+
+   Enable NVIDIA NIM LLM:
+   --set nimllm.enabled=true
+
+6. Registry authentication
 
    If you already have a secret, set imagePullSecrets:
-     --set imagePullSecrets[0].name=my-secret
+   --set imagePullSecrets[0].name=my-secret
 
-   Or let the chart create one by providing dockerconfigjson:
-     --set registrySecret.enabled=true \
-     --set-file registrySecret.dockerconfigjson=/path/to/.docker/config.json
+   For separate notebook registry credentials:
+   --set notebook.imagePullSecrets[0].name=my-notebook-secret
 
-4. Uninstall
+7. Uninstall
 
-   helm uninstall <release-name> --namespace <ns>
+   helm uninstall {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+================================================================================
+
+For more information: https://github.com/h2oai/flood_prediction

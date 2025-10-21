@@ -2,19 +2,28 @@
 imagePullSecrets:
   - name: flood-prediction-registry
 
-ingress:
-  hostName: flood-prediction.h2o.ai
-
 image:
   registry: h2oaireleasetest
   repository: h2oai-flood-prediction
-  tag: v0.3.0
+  tag: v0.2.15
+
+service:
+  type: NodePort
+
+ingress:
+  enabled: false
+
+nimllm:
+  enabled: true
+  model:
+    ngcAPISecret: ngc-api
+  imagePullSecrets:
+    - name: ngc-secret
 
 notebook:
   imagePullSecrets:
     - name: flood-prediction-notebook-registry
-  # token: ""
   image:
     repository: h2oai-floodprediction-notebook
-    registry: us-docker.pkg.dev/vorvan/dev
-    tag: v0.3.0
+    registry: maker9
+    tag: v0.1.0

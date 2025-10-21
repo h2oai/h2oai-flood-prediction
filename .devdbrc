@@ -1,0 +1,6 @@
+[
+  {
+    "type": "sqlite",
+    "path": "/home/ubuntu/tmp-flood-prediction/flood_prediction/core/.data/flood_prediction.db"
+  }
+]

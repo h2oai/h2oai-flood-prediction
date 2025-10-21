@@ -7,5 +7,10 @@ ingress:
 image:
   registry: us-docker.pkg.dev/vorvan/dev
   repository: h2oai-floodprediction-app
-  tag: latest
-  pullPolicy: Always
+  tag: v1.0.0
+
+notebook:
+  image:
+    registry: us-docker.pkg.dev/vorvan/dev
+    repository: h2oai-floodprediction-notebook
+    tag: v1.0.0

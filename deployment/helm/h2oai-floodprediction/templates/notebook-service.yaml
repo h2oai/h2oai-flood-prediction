@@ -1,0 +1,24 @@
+{{- if .Values.notebook.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-notebook
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ .Chart.Name }}
+    app.kubernetes.io/component: notebook
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/component: notebook
+  ports:
+    - name: jupyter
+      port: 80
+      targetPort: 8888
+      protocol: TCP
+      {{- if and (eq "NodePort" .Values.service.type) .Values.notebook.nodePort }}
+      nodePort: {{ .Values.notebook.nodePort }}
+      {{- end }}
+{{- end }}

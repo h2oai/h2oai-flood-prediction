@@ -111,6 +111,8 @@ export interface DashboardSummary {
 export interface Watershed {
     id: number;
     name: string;
+    region?: string;
+    region_code?: string;
     location_lat?: number;
     location_lng?: number;
     basin_size_sqmi?: number;
@@ -136,6 +138,7 @@ export interface Alert {
     issued_time: string;
     expires_time?: string;
     affected_counties?: string[];
+    data_source?: string;
 }
 
 export interface RiskTrendPoint {
@@ -151,22 +154,71 @@ export interface DashboardData {
     risk_trends: RiskTrendPoint[];
 }
 
+export interface Region {
+    code: string;
+    name: string;
+    description: string;
+    center_lat: number;
+    center_lng: number;
+    zoom: number;
+    watershed_count: number;
+}
+
+export const regionsApi = {
+    // Get all available regions
+    getRegions: (): Promise<Region[]> =>
+        request<Region[]>('/regions'),
+
+    // Get specific region details
+    getRegion: (regionCode: string): Promise<Region> =>
+        request<Region>(`/regions/${regionCode}`),
+
+    // Get current region from localStorage
+    getCurrentRegion: (): string => {
+        return localStorage.getItem('selected_region') || 'TX';
+    },
+
+    // Set current region in localStorage
+    setCurrentRegion: (regionCode: string): void => {
+        localStorage.setItem('selected_region', regionCode);
+    },
+};
+
 export const dashboardApi = {
     // Get complete dashboard data
-    getDashboardData: (): Promise<DashboardData> =>
-        request<DashboardData>('/dashboard'),
+    getDashboardData: (region?: string): Promise<DashboardData> =>
+        request<DashboardData>(`/dashboard${region ? `?region=${region}` : ''}`),
 
     // Get dashboard summary only
     getDashboardSummary: (): Promise<DashboardSummary> =>
         request<DashboardSummary>('/dashboard/summary'),
 
     // Get all watersheds
-    getWatersheds: (): Promise<Watershed[]> =>
-        request<Watershed[]>('/watersheds'),
+    getWatersheds: (region?: string): Promise<Watershed[]> =>
+        request<Watershed[]>(`/watersheds${region ? `?region=${region}` : ''}`),
 
     // Get active alerts
     getAlerts: (limit?: number): Promise<Alert[]> =>
         request<Alert[]>(`/alerts${limit ? `?limit=${limit}` : ''}`),
+
+    // Refresh alerts from NOAA API
+    refreshAlerts: (): Promise<{
+        status: string;
+        message: string;
+        alerts_fetched: number;
+        alerts_stored: number;
+        alerts_skipped: number;
+        timestamp: string;
+    }> =>
+        request('/alerts/refresh', { method: 'POST' }),
+
+    // Clear all sample alerts
+    clearSampleAlerts: (): Promise<{
+        status: string;
+        message: string;
+        deleted_count: number;
+    }> =>
+        request('/alerts/clear-sample', { method: 'POST' }),
 
     // Populate sample data
     populateSampleData: (): Promise<{ status: string; message: string }> =>

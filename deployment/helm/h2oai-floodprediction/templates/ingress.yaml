@@ -18,6 +18,15 @@ spec:
     - host: {{ .Values.ingress.hostName }}
       http:
         paths:
+          {{- if .Values.notebook.enabled }}
+          - path: /jupyter
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-notebook
+                port:
+                  number: 80
+          {{- end }}
           - path: /
             pathType: Prefix
             backend:

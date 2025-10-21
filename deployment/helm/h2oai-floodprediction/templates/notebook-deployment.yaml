@@ -1,24 +1,25 @@
+{{- if .Values.notebook.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-web
+  name: {{ .Release.Name }}-notebook
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/part-of: {{ .Chart.Name }}
-    app.kubernetes.io/component: web
+    app.kubernetes.io/component: notebook
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ .Chart.Name }}
-      app.kubernetes.io/component: web
+      app.kubernetes.io/component: notebook
   template:
     metadata:
       labels:
         app.kubernetes.io/name: {{ .Chart.Name }}
         app.kubernetes.io/part-of: {{ .Chart.Name }}
-        app.kubernetes.io/component: web
+        app.kubernetes.io/component: notebook
     spec:
       serviceAccountName: {{ .Values.serviceAccountName | default "default" }}
       {{- if .Values.imagePullSecrets }}
@@ -26,10 +27,31 @@ spec:
         {{- toYaml .Values.imagePullSecrets | nindent 8 }}
       {{- end }}
       containers:
-        - name: web
-          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: notebook
+          image: "{{ .Values.notebook.image.registry }}/{{ .Values.notebook.image.repository }}:{{ .Values.notebook.image.tag }}"
+          imagePullPolicy: {{ .Values.notebook.image.pullPolicy }}
+          command: ["start-notebook.py"]
+          {{- $token := include "h2oai-floodprediction.jupyterToken" . }}
+          args:
+            - "--ServerApp.base_url=/jupyter"
+            {{- if eq $token "" }}
+            - "--IdentityProvider.token=''"
+            {{- end }}
+            {{- if .Values.notebook.allowPasswordChange }}
+            - "--ServerApp.allow_password_change=True"
+            {{- else }}
+            - "--ServerApp.allow_password_change=False"
+            {{- end }}
           env:
+            {{- if $token }}
+            - name: JUPYTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: jupyterToken
+            {{- end }}
+            - name: API_SERVER_URL
+              value: "http://{{ .Release.Name }}-web"
             - name: NVIDIA_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -70,47 +92,24 @@ spec:
           {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            - name: http
-              containerPort: 8000
+            - name: jupyter
+              containerPort: 8888
           readinessProbe:
             httpGet:
-              path: /
-              port: http
+              path: /jupyter
+              port: jupyter
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /
-              port: http
+              path: /jupyter
+              port: jupyter
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 2
             failureThreshold: 3
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-        {{- if .Values.redis.enabled }}
-        - name: redis
-          image: "{{ .Values.redis.image.registry | default "docker.io" }}/{{ .Values.redis.image.repository | default "redis" }}:{{ .Values.redis.image.tag | default "8.2.1" }}"
-          imagePullPolicy: {{ .Values.redis.image.pullPolicy | default "IfNotPresent" }}
-          ports:
-            - name: redis
-              containerPort: 6379
-          readinessProbe:
-            tcpSocket:
-              port: 6379
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            timeoutSeconds: 2
-            failureThreshold: 3
-          livenessProbe:
-            tcpSocket:
-              port: 6379
-            initialDelaySeconds: 10
-            periodSeconds: 20
-            timeoutSeconds: 2
-            failureThreshold: 3
-          resources:
-            {{- toYaml .Values.redis.resources | nindent 12 }}
-        {{- end }}
+            {{- toYaml .Values.notebook.resources | nindent 12 }}
+{{- end }}

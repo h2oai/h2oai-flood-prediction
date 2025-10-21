@@ -184,25 +184,29 @@ class USGSWaterServices:
             return []
     
     def get_site_info(self, site_code: str) -> Optional[USGSSite]:
-        """Get detailed information for a specific USGS site"""
-        url = f"{self.BASE_URL}/site/"
-        
+        """Get detailed information for a specific USGS site using instantaneous values endpoint"""
+        # Use the IV (instantaneous values) endpoint which reliably returns site coordinates
+        url = f"{self.BASE_URL}/iv/"
+
         params = {
             'format': 'json',
             'sites': site_code,
-            'siteOutput': 'expanded'
+            'parameterCd': self.STREAMFLOW_PARAM,  # Request discharge data
+            'siteStatus': 'active'
         }
-        
+
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
-            
+
             data = response.json()
-            
+
             if 'value' in data and 'timeSeries' in data['value']:
-                for ts in data['value']['timeSeries']:
-                    source_info = ts['sourceInfo']
-                    
+                time_series = data['value']['timeSeries']
+
+                if len(time_series) > 0:
+                    source_info = time_series[0]['sourceInfo']
+
                     # Extract drainage area if available
                     drainage_area = None
                     for prop in source_info.get('siteProperty', []):
@@ -212,44 +216,268 @@ class USGSWaterServices:
                             except (ValueError, TypeError):
                                 pass
                             break
-                    
+
+                    # Extract state and county from siteProperty
+                    state = 'Unknown'
+                    county = 'Unknown'
+                    for prop in source_info.get('siteProperty', []):
+                        prop_name = prop.get('name', '')
+                        if 'State' in prop_name or 'stateCd' in prop_name:
+                            state = prop.get('value', 'Unknown')
+                        elif 'County' in prop_name or 'countyCd' in prop_name:
+                            county = prop.get('value', 'Unknown')
+
                     return USGSSite(
                         site_code=source_info['siteCode'][0]['value'],
                         site_name=source_info['siteName'],
                         latitude=float(source_info['geoLocation']['geogLocation']['latitude']),
                         longitude=float(source_info['geoLocation']['geogLocation']['longitude']),
-                        state=source_info.get('siteProperty', [{}])[0].get('value', 'TX'),
-                        county=source_info.get('siteProperty', [{}])[1].get('value', 'Unknown') if len(source_info.get('siteProperty', [])) > 1 else 'Unknown',
+                        state=state,
+                        county=county,
                         drainage_area_sqmi=drainage_area
                     )
-            
+
             return None
-            
+
         except requests.RequestException as e:
             log.error(f"Error fetching USGS site info for {site_code}: {str(e)}")
             return None
         except (KeyError, ValueError, json.JSONDecodeError) as e:
-            log.error(f"Error parsing USGS site info response: {str(e)}")
+            log.error(f"Error parsing USGS site info response for {site_code}: {str(e)}")
             return None
 
 
-def get_major_texas_river_sites() -> List[str]:
-    """Get USGS site codes for major Texas rivers mentioned in the sample data"""
+# =============================================================================
+# Regional Configuration
+# =============================================================================
+
+REGION_CONFIG = {
+    "TX": {
+        "name": "Texas",
+        "code": "TX",
+        "description": "Texas Gulf Coast and major river basins",
+        "center_lat": 31.0,
+        "center_lng": -99.0,
+        "zoom": 6,
+        "state_codes": ["TX"],
+        "sites": [
+            "08167000",  # Guadalupe River at Comfort, TX
+            "08158000",  # Colorado River at Austin, TX
+            "08116650",  # Brazos River near Rosharon, TX
+            "08057000",  # Trinity River at Dallas, TX
+            "08178000",  # San Antonio River at San Antonio, TX
+            "08020000",  # Sabine River near Longview, TX
+            "08041000",  # Neches River at Evadale, TX
+            "07335500",  # Red River at Denison Dam near Denison, TX
+            "08447000",  # Pecos River near Girvin, TX
+            "07227500",  # Canadian River near Amarillo, TX
+            "08150000",  # Llano River at Llano, TX
+            "08211000",  # Nueces River near Mathis, TX
+        ]
+    },
+    "CA": {
+        "name": "California",
+        "code": "CA",
+        "description": "California rivers and watersheds",
+        "center_lat": 37.0,
+        "center_lng": -120.0,
+        "zoom": 6,
+        "state_codes": ["CA"],
+        "sites": [
+            "11447650",  # Sacramento River at Freeport, CA - VERIFIED
+            "11303500",  # San Joaquin River near Vernalis, CA - VERIFIED
+            "11446500",  # American River at Fair Oaks, CA - VERIFIED
+            "11370500",  # Sacramento River at Keswick, CA - VERIFIED
+            "11425500",  # Sacramento River at Verona, CA - VERIFIED
+            "11389500",  # Sacramento River at Colusa, CA - VERIFIED
+            "11467000",  # Russian River at Hacienda Bridge near Guerneville, CA - VERIFIED
+            "11464000",  # Russian River near Healdsburg, CA - VERIFIED
+            "11407000",  # Feather River at Oroville, CA - VERIFIED
+            "11390000",  # Butte Creek near Chico, CA - VERIFIED
+        ]
+    },
+    "FL": {
+        "name": "Florida",
+        "code": "FL",
+        "description": "Florida rivers and coastal watersheds",
+        "center_lat": 28.5,
+        "center_lng": -82.0,
+        "zoom": 6,
+        "state_codes": ["FL"],
+        "sites": [
+            "02246500",  # St. Johns River at Jacksonville, FL - VERIFIED
+            "02315500",  # Suwannee River at White Springs, FL - VERIFIED
+            "02319800",  # Suwannee River at Dowling Park, FL - VERIFIED
+            "02320500",  # Suwannee River at Branford, FL - VERIFIED
+            "02358000",  # Apalachicola River at Chattahoochee, FL - VERIFIED
+            "02358700",  # Apalachicola River near Blountstown, FL - VERIFIED
+            "02296750",  # Peace River at SR 70 at Arcadia, FL - VERIFIED
+            "02294650",  # Peace River at Bartow, FL - CORRECTED from 02294655
+        ]
+    },
+    "LA": {
+        "name": "Louisiana",
+        "code": "LA",
+        "description": "Louisiana and Mississippi Delta region",
+        "center_lat": 30.5,
+        "center_lng": -91.5,
+        "zoom": 7,
+        "state_codes": ["LA"],
+        "sites": [
+            "07381600",  # Atchafalaya River at Simmesport, LA
+            "07373420",  # Mississippi River at Belle Chasse, LA
+            "07374000",  # Mississippi River at Baton Rouge, LA
+            "07374525",  # Mississippi River below Red River Landing, LA - ADDED
+            "07380120",  # Amite River at Port Vincent, LA
+            "07386980",  # Vermilion River at Perry, LA
+            "07389000",  # Bayou Teche at Arnaudville, LA
+        ]
+    },
+    "MS": {
+        "name": "Mississippi Delta",
+        "code": "MS",
+        "description": "Mississippi River Delta region",
+        "center_lat": 33.0,
+        "center_lng": -90.0,
+        "zoom": 7,
+        "state_codes": ["MS", "AR"],
+        "sites": [
+            "07289000",  # Mississippi River at Vicksburg, MS
+            "07288650",  # Yazoo River at Redwood, MS
+            "07288800",  # Big Sunflower River at Sunflower, MS - ADDED
+            "02479000",  # Pascagoula River at Merrill, MS
+            "02489500",  # Pearl River at Jackson, MS
+            "07263620",  # Arkansas River at David D. Terry Lock & Dam, AR
+        ]
+    },
+    "PNW": {
+        "name": "Pacific Northwest",
+        "code": "PNW",
+        "description": "Washington and Oregon watersheds",
+        "center_lat": 45.5,
+        "center_lng": -122.0,
+        "zoom": 6,
+        "state_codes": ["WA", "OR"],
+        "sites": [
+            "14211720",  # Willamette River at Portland, OR - VERIFIED
+            "14105700",  # Columbia River at The Dalles, OR - VERIFIED
+            "12113000",  # Green River near Auburn, WA - VERIFIED
+            "12200500",  # Skagit River near Mount Vernon, WA - VERIFIED
+            "12031000",  # Chehalis River at Porter, WA
+            "14211500",  # Sandy River below Bull Run River, OR
+            "12108500",  # White River at R Street near Auburn, WA - ADDED
+        ]
+    },
+    "UMW": {
+        "name": "Upper Midwest",
+        "code": "UMW",
+        "description": "Minnesota and Wisconsin watersheds",
+        "center_lat": 45.0,
+        "center_lng": -92.0,
+        "zoom": 6,
+        "state_codes": ["MN", "WI"],
+        "sites": [
+            "05344500",  # Mississippi River at Prescott, WI
+            "05331000",  # Mississippi River at St. Paul, MN
+            "05211000",  # Mississippi River at Grand Rapids, MN
+            "05267000",  # Mississippi River near Royalton, MN - ADDED
+            "05355200",  # Chippewa River at Durand, WI
+            "05120000",  # Red River of the North at Fargo, ND
+            "05378500",  # Mississippi River at Winona, MN
+        ]
+    },
+    "NE": {
+        "name": "Northeast",
+        "code": "NE",
+        "description": "New York and Pennsylvania watersheds",
+        "center_lat": 41.5,
+        "center_lng": -76.0,
+        "zoom": 6,
+        "state_codes": ["NY", "PA"],
+        "sites": [
+            "01531500",  # Susquehanna River at Towanda, PA - VERIFIED
+            "01357500",  # Mohawk River at Cohoes, NY - VERIFIED
+            "01335754",  # Hudson River Above Lock 1 Near Waterford, NY - VERIFIED
+            "01463500",  # Delaware River at Trenton, NJ - VERIFIED
+            "01536500",  # Susquehanna River at Wilkes-Barre, PA
+            "01553500",  # West Branch Susquehanna River at Lewisburg, PA
+            "01578310",  # Susquehanna River at Conowingo, MD - ADDED
+        ]
+    },
+    "SE": {
+        "name": "Southeast",
+        "code": "SE",
+        "description": "Georgia and South Carolina watersheds",
+        "center_lat": 33.0,
+        "center_lng": -82.0,
+        "zoom": 6,
+        "state_codes": ["GA", "SC"],
+        "sites": [
+            "02198500",  # Savannah River at Augusta, GA
+            "02169000",  # Congaree River at Columbia, SC
+            "02202500",  # Ogeechee River near Eden, GA
+            "02177000",  # Edisto River near Givhans, SC
+            "02228000",  # Altamaha River at Doctortown, GA
+            "02226500",  # Altamaha River at Everett City, GA - ADDED
+            "02215500",  # Ocmulgee River at Macon, GA
+        ]
+    },
+    "MW": {
+        "name": "Mountain West",
+        "code": "MW",
+        "description": "Colorado and Utah mountain watersheds",
+        "center_lat": 39.0,
+        "center_lng": -106.0,
+        "zoom": 6,
+        "state_codes": ["CO", "UT"],
+        "sites": [
+            "09380000",  # Colorado River at Lees Ferry, AZ
+            "09163500",  # Colorado River near Colorado-Utah State Line
+            "09070500",  # Colorado River near Dotsero, CO
+            "09180000",  # Dolores River near Cisco, UT - ADDED
+            "09306500",  # White River near Watson, UT
+            "09261000",  # Green River near Jensen, UT
+            "09315000",  # Green River at Green River, UT
+        ]
+    }
+}
+
+
+
+def get_available_regions() -> List[Dict[str, Any]]:
+    """Get list of all available regions with metadata"""
     return [
-        # Major Texas Rivers - these are real USGS site codes
-        "08167000",  # Guadalupe River at Comfort, TX
-        "08158000",  # Colorado River at Austin, TX  
-        "08116650",  # Brazos River near Rosharon, TX
-        "08057000",  # Trinity River at Dallas, TX
-        "08178000",  # San Antonio River at San Antonio, TX
-        "08020000",  # Sabine River near Longview, TX
-        "08041000",  # Neches River at Evadale, TX
-        "07335500",  # Red River at Denison Dam near Denison, TX
-        "08447000",  # Pecos River near Girvin, TX
-        "07227500",  # Canadian River near Amarillo, TX
-        "08150000",  # Llano River at Llano, TX
-        "08211000",  # Nueces River near Mathis, TX
+        {
+            "code": config["code"],
+            "name": config["name"],
+            "description": config["description"],
+            "center_lat": config["center_lat"],
+            "center_lng": config["center_lng"],
+            "zoom": config["zoom"],
+            "watershed_count": len(config["sites"])
+        }
+        for code, config in REGION_CONFIG.items()
     ]
+
+
+def get_region_config(region_code: str) -> Optional[Dict[str, Any]]:
+    """Get configuration for a specific region"""
+    return REGION_CONFIG.get(region_code.upper())
+
+
+def get_major_river_sites_by_region(region_code: str = "TX") -> List[str]:
+    """Get USGS site codes for major rivers in the specified region"""
+    config = get_region_config(region_code)
+    if config:
+        return config["sites"]
+    # Default to Texas if region not found
+    return REGION_CONFIG["TX"]["sites"]
+
+
+# Backward compatibility
+def get_major_texas_river_sites() -> List[str]:
+    """Get USGS site codes for major Texas rivers (backward compatibility)"""
+    return get_major_river_sites_by_region("TX")
 
 
 def calculate_risk_level(streamflow_cfs: float, flood_stage_cfs: Optional[float] = None) -> Tuple[str, float]:
@@ -375,30 +603,35 @@ def update_watershed_with_usgs_data(db_path: str, usgs_data: StreamflowData) -> 
         return False
 
 
-def fetch_and_update_usgs_data(db_path: str, site_codes: Optional[List[str]] = None) -> Dict[str, Any]:
+def fetch_and_update_usgs_data(db_path: str, site_codes: Optional[List[str]] = None, region_code: Optional[str] = None) -> Dict[str, Any]:
     """
     Fetch USGS data and update watershed information in database
-    
+
     Args:
         db_path: Path to the SQLite database
-        site_codes: Optional list of specific site codes to fetch. If None, uses major Texas rivers.
-        
+        site_codes: Optional list of specific site codes to fetch.
+        region_code: Optional region code to fetch data for. If None with no site_codes, uses Texas.
+
     Returns:
         Dict with update results
     """
     if not settings.enable_real_time_data:
         log.info("Real-time data integration is disabled")
         return {"success": False, "message": "Real-time data integration disabled"}
-    
+
     if site_codes is None:
-        site_codes = get_major_texas_river_sites()
-    
+        if region_code:
+            site_codes = get_major_river_sites_by_region(region_code)
+        else:
+            site_codes = get_major_texas_river_sites()
+
     usgs_api = USGSWaterServices(timeout=settings.usgs_api_timeout)
     results = {
         "success": True,
         "updated_count": 0,
         "failed_count": 0,
         "errors": [],
+        "region_code": region_code or "TX",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
@@ -435,30 +668,35 @@ def fetch_and_update_usgs_data(db_path: str, site_codes: Optional[List[str]] = N
         return results
 
 
-def create_watersheds_from_usgs_sites(db_path: str, limit: int = 20) -> Dict[str, Any]:
+def create_watersheds_from_usgs_sites(db_path: str, limit: int = 20, region_code: str = "TX") -> Dict[str, Any]:
     """
     Create watershed entries from USGS monitoring sites
     This is useful for initial setup or expanding coverage
-    
+
     Args:
-        db_path: Path to the SQLite database  
+        db_path: Path to the SQLite database
         limit: Maximum number of sites to process
-        
+        region_code: Region code for the watersheds (default: TX)
+
     Returns:
         Dict with creation results
     """
     usgs_api = USGSWaterServices(timeout=settings.usgs_api_timeout)
+    region_config = get_region_config(region_code)
+
     results = {
         "success": True,
         "created_count": 0,
         "skipped_count": 0,
-        "errors": []
+        "errors": [],
+        "region": region_config["name"] if region_config else "Unknown",
+        "region_code": region_code
     }
-    
+
     try:
-        # Get major river site codes
-        site_codes = get_major_texas_river_sites()[:limit]
-        
+        # Get major river site codes for the region
+        site_codes = get_major_river_sites_by_region(region_code)[:limit]
+
         for site_code in site_codes:
             try:
                 # Get site information
@@ -466,23 +704,23 @@ def create_watersheds_from_usgs_sites(db_path: str, limit: int = 20) -> Dict[str
                 if not site_info:
                     results["skipped_count"] += 1
                     continue
-                
+
                 # Get current streamflow data
                 streamflow_data = usgs_api.get_streamflow_data([site_code], period="P1D")
                 current_flow = 0.0
                 if streamflow_data:
                     current_flow = streamflow_data[0].streamflow_cfs
-                
+
                 # Calculate estimated flood stage (rough estimate based on drainage area)
                 flood_stage = None
                 if site_info.drainage_area_sqmi:
                     # Very rough estimate: larger drainage areas tend to have higher flood stages
                     flood_stage = max(1000, site_info.drainage_area_sqmi * 10)
-                
+
                 # Calculate initial risk
                 risk_level, risk_score = calculate_risk_level(current_flow, flood_stage)
-                
-                # Create watershed entry
+
+                # Create watershed entry with region info
                 watershed_id = db.insert_watershed(
                     db_path,
                     name=f"{site_info.site_name} (USGS {site_info.site_code})",
@@ -497,26 +735,185 @@ def create_watersheds_from_usgs_sites(db_path: str, limit: int = 20) -> Dict[str
                     trend_rate=0.0,
                     usgs_site_code=site_info.site_code,
                     data_source='usgs',
-                    data_quality='unknown'
+                    data_quality='unknown',
+                    region=region_config["name"] if region_config else "Unknown",
+                    region_code=region_code
                 )
-                
+
                 if watershed_id:
                     results["created_count"] += 1
                     log.info(f"Created watershed for USGS site {site_code}: {site_info.site_name}")
                 else:
                     results["skipped_count"] += 1
-                    
+
             except Exception as e:
                 results["skipped_count"] += 1
                 results["errors"].append(f"Failed to process site {site_code}: {str(e)}")
                 log.warning(f"Failed to process USGS site {site_code}: {str(e)}")
-        
+
         results["message"] = f"Created {results['created_count']} watersheds from USGS sites"
         return results
-        
+
     except Exception as e:
         results["success"] = False
         results["message"] = f"Failed to create watersheds from USGS sites: {str(e)}"
         results["errors"].append(str(e))
         log.error(f"Failed to create watersheds from USGS sites: {str(e)}")
         return results
+
+
+def fetch_and_store_noaa_alerts(db_path: str) -> Dict[str, Any]:
+    """
+    Fetch real-time flood alerts from NOAA Weather API and store them in the database
+
+    Args:
+        db_path: Path to the SQLite database
+
+    Returns:
+        Dict with fetch and storage results
+    """
+    results = {
+        "success": True,
+        "alerts_fetched": 0,
+        "alerts_stored": 0,
+        "alerts_skipped": 0,
+        "errors": [],
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+    if not settings.enable_real_time_data:
+        log.info("Real-time data integration is disabled")
+        return {"success": False, "message": "Real-time data integration disabled"}
+
+    try:
+        # Fetch active alerts from NOAA for Texas
+        url = "https://api.weather.gov/alerts/active"
+        params = {
+            'area': 'TX',
+            'status': 'actual',
+            'message_type': 'alert'
+        }
+        headers = {
+            'User-Agent': 'FloodPredictionSystem/1.0 (github.com/flood-prediction)',
+            'Accept': 'application/geo+json'
+        }
+
+        response = requests.get(url, params=params, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        features = data.get('features', [])
+        results["alerts_fetched"] = len(features)
+
+        # Filter for flood-related alerts
+        flood_keywords = ['flood', 'flash flood', 'flooding', 'river', 'stream', 'water']
+
+        # Get all watersheds for matching
+        watersheds = db.get_watersheds(db_path)
+
+        for feature in features:
+            props = feature.get('properties', {})
+            event_type = props.get('event', '').lower()
+
+            # Check if this is a flood-related alert
+            if not any(keyword in event_type for keyword in flood_keywords):
+                continue
+
+            # Extract alert information
+            noaa_id = props.get('id', '')
+            alert_type = props.get('event', 'Weather Alert')
+            headline = props.get('headline', '')
+            description = props.get('description', '')
+            severity = props.get('severity', 'Unknown')
+            areas = props.get('areaDesc', '')
+            effective = props.get('effective', datetime.now(timezone.utc).isoformat())
+            expires = props.get('expires', (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat())
+
+            # Create alert message
+            message = headline if headline else description[:200]
+
+            # Map NOAA severity to database severity
+            severity_map = {
+                'Extreme': 'High',
+                'Severe': 'High',
+                'Moderate': 'Moderate',
+                'Minor': 'Low',
+                'Unknown': 'Moderate'
+            }
+            db_severity = severity_map.get(severity, 'Moderate')
+
+            # Try to match alert to watershed(s)
+            matched_watersheds = match_alert_to_watersheds(areas, watersheds)
+
+            if not matched_watersheds:
+                # Create a general alert for the first watershed if no match
+                matched_watersheds = [watersheds[0]] if watersheds else []
+
+            # Store alert for each matched watershed
+            for watershed in matched_watersheds:
+                alert_id = db.insert_noaa_alert(
+                    db_path,
+                    alert_type=alert_type,
+                    watershed_id=watershed['id'],
+                    message=message,
+                    severity=db_severity,
+                    issued_time=effective,
+                    expires_time=expires,
+                    counties=areas[:200],  # Truncate if too long
+                    noaa_id=noaa_id
+                )
+
+                if alert_id:
+                    results["alerts_stored"] += 1
+                    log.info(f"Stored NOAA alert: {alert_type} for {watershed['name']}")
+                else:
+                    results["alerts_skipped"] += 1
+
+        results["message"] = f"Fetched {results['alerts_fetched']} alerts, stored {results['alerts_stored']}, skipped {results['alerts_skipped']} duplicates"
+        log.info(f"NOAA alerts update completed: {results['message']}")
+        return results
+
+    except requests.RequestException as e:
+        results["success"] = False
+        results["message"] = f"Failed to fetch NOAA alerts: {str(e)}"
+        results["errors"].append(str(e))
+        log.error(f"NOAA alerts fetch failed: {str(e)}")
+        return results
+    except Exception as e:
+        results["success"] = False
+        results["message"] = f"Error processing NOAA alerts: {str(e)}"
+        results["errors"].append(str(e))
+        log.error(f"NOAA alerts processing failed: {str(e)}")
+        return results
+
+
+def match_alert_to_watersheds(area_description: str, watersheds: List[Dict]) -> List[Dict]:
+    """
+    Match a NOAA alert area description to watersheds in the database
+
+    Args:
+        area_description: NOAA alert area description (e.g., "Travis; Bastrop; Hays")
+        watersheds: List of watershed dictionaries
+
+    Returns:
+        List of matched watersheds
+    """
+    if not area_description or not watersheds:
+        return []
+
+    matched = []
+    area_lower = area_description.lower()
+
+    # Split areas by common delimiters
+    area_parts = [part.strip() for part in area_description.replace(';', ',').split(',')]
+
+    for watershed in watersheds:
+        watershed_name = watershed.get('name', '').lower()
+
+        # Check if any area is mentioned in the watershed name
+        for area in area_parts:
+            if area.lower() in watershed_name or watershed_name in area.lower():
+                matched.append(watershed)
+                break
+
+    return matched

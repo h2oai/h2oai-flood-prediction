@@ -307,24 +307,44 @@ class AgentManager:
             return {}
     
     async def collect_external_data(self) -> Dict[str, Any]:
-        """Trigger data collection from external APIs"""
+        """Trigger data collection from external APIs and store in database"""
         data_collector = self.agents.get('data_collector')
         if not isinstance(data_collector, DataCollectorAgent):
             raise RuntimeError("Data collector agent not available")
-        
+
         try:
-            # Collect data from all sources
+            # Import here to avoid circular dependency
+            from ..data_sources import fetch_and_update_usgs_data
+
+            # Collect data from all sources (this updates timestamps)
             usgs_data = await data_collector.collect_usgs_data()
             noaa_data = await data_collector.collect_noaa_flood_data()
             weather_data = await data_collector.collect_weather_data()
-            
+
+            # Store USGS data in database (synchronous operation)
+            db_update_result = None
+            try:
+                db_update_result = fetch_and_update_usgs_data(self.db_path, None)
+                logger.info(f"Database update: {db_update_result.get('message', 'completed')}")
+            except Exception as db_error:
+                logger.error(f"Failed to update database with USGS data: {db_error}")
+
+            # Force data_collector agent to regenerate insights with new timestamps
+            # This ensures the data freshness score is immediately updated
+            try:
+                await data_collector._run_check()
+                logger.info("Data collector insights regenerated after manual collection")
+            except Exception as check_error:
+                logger.warning(f"Failed to regenerate data collector insights: {check_error}")
+
             return {
                 'usgs_data': usgs_data,
                 'noaa_data': noaa_data,
                 'weather_data': weather_data,
-                'collected_at': datetime.now(timezone.utc).isoformat()
+                'collected_at': datetime.now(timezone.utc).isoformat(),
+                'db_updated': db_update_result.get('updated_count', 0) if db_update_result else 0
             }
-            
+
         except Exception as e:
             logger.error(f"Error collecting external data: {e}")
             raise

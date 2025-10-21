@@ -11,12 +11,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Application settings with environment variable support"""
-    
+
     model_config = SettingsConfigDict(
         env_file=(
             # ".env.local",      # Local overrides (highest priority)
             # ".env.development", # Environment specific
-            # ".env.production", 
+            # ".env.production",
             # ".env.test",
             ".env",            # Default fallback
         ),
@@ -24,10 +24,10 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=False,
     )
-    
+
     # Environment detection
     env: str = "development"  # development, production, test
-    
+
     # =============================================================================
     # Core Settings
     # =============================================================================
@@ -45,15 +45,15 @@ class Settings(BaseSettings):
     port: int = 8000
     base_url: str = "/"
     max_workers: int = 10
-    
-    
+
+
     # =============================================================================
     # LLM Settings
     # =============================================================================
     h2ogpte_url: str = ""
     h2ogpte_api_key: Optional[str] = None
     h2ogpte_model: str = ""
-    
+
     # =============================================================================
     # NVIDIA AI Settings
     # =============================================================================
@@ -62,22 +62,29 @@ class Settings(BaseSettings):
     nvidia_default_model: str = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
     nvidia_embedding_model: str = "nvidia/nv-embedqa-e5-v5"
     nvidia_judge_model: str = "meta/llama-3.1-405b-instruct"
-    
+
+    # =============================================================================
+    # Local NVIDIA NIM LLM Settings (Kubernetes Helm Deployment)
+    # =============================================================================
+    local_nim_api_key: Optional[str] = None  # Optional for local deployment
+    local_nim_base_url: str = os.environ.get("NIM_LLM_BASE_URL", "")
+    local_nim_default_model: str = os.environ.get("NIM_LLM_DEFAULT_MODEL", "nvidia/llama-3-3-nemotron-super-49b-v1-5")
+
     # =============================================================================
     # AI Provider Settings
     # =============================================================================
-    ai_provider: str = "nvidia"  # "h2ogpte", "nvidia", "hybrid"
+    ai_provider: str = "nvidia"  # "h2ogpte", "nvidia", "local_nim_llm", "hybrid"
     enable_nvidia_agents: bool = False
     enable_nvidia_rag: bool = False
     enable_nvidia_evaluator: bool = False
-    
+
     # =============================================================================
     # Database Settings
     # =============================================================================
     database_url: Optional[str] = None  # For external databases
     sqlite_timeout: int = 30
     sqlite_pool_size: int = 20
-    
+
     # =============================================================================
     # Redis Settings
     # =============================================================================
@@ -85,7 +92,7 @@ class Settings(BaseSettings):
     redis_db: int = 0
     redis_password: Optional[str] = None
     redis_ssl: bool = False
-    
+
     # =============================================================================
     # Authentication Settings (OIDC)
     # =============================================================================
@@ -96,7 +103,7 @@ class Settings(BaseSettings):
     oidc_user_id_claim: str = "sub"
     oidc_username_claim: str = "preferred_username"
     oidc_email_claim: str = "email"
-    
+
     # =============================================================================
     # Security Settings
     # =============================================================================
@@ -105,28 +112,28 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 30
     cors_origins: list = ["*"]
     allowed_hosts: list = ["*"]
-    
+
     # =============================================================================
     # API Settings
     # =============================================================================
     api_rate_limit: str = "100/minute"
     api_timeout: int = 30
     api_max_retries: int = 3
-    
+
     # =============================================================================
     # File Processing Settings
     # =============================================================================
     max_file_size: int = 100 * 1024 * 1024  # 100MB
     allowed_file_types: list = [".pdf", ".txt", ".docx", ".csv"]
     upload_chunk_size: int = 8192
-    
+
     # =============================================================================
     # Background Job Settings
     # =============================================================================
     job_timeout: int = 3600  # 1 hour
     job_ttl: int = 604800    # 1 week
     job_failure_ttl: int = 86400  # 1 day
-    
+
     # =============================================================================
     # Monitoring & Performance
     # =============================================================================
@@ -134,14 +141,14 @@ class Settings(BaseSettings):
     metrics_port: int = 9090
     enable_profiling: bool = False
     slow_query_threshold: float = 1.0  # seconds
-    
+
     # =============================================================================
     # External Services (customize as needed)
     # =============================================================================
     external_api_url: Optional[str] = None
     external_api_key: Optional[str] = None
     external_api_timeout: int = 30
-    
+
     # =============================================================================
     # AI Agents Configuration
     # =============================================================================
@@ -149,23 +156,23 @@ class Settings(BaseSettings):
     agents_auto_start: bool = True
     agents_check_interval: int = 300  # Default check interval in seconds
     agents_data_cache_ttl: int = 300  # Data cache TTL in seconds
-    
+
     # Agent-specific settings
     data_collector_interval: int = 300  # 5 minutes
-    risk_analyzer_interval: int = 600   # 10 minutes  
+    risk_analyzer_interval: int = 600   # 10 minutes
     emergency_responder_interval: int = 180  # 3 minutes
     predictor_interval: int = 900       # 15 minutes
-    
+
     # External API settings for agents
     usgs_api_enabled: bool = True
     noaa_api_enabled: bool = True
     openmeteo_api_enabled: bool = True
-    
+
     # Alert and notification settings
     emergency_alerts_enabled: bool = True
     alert_channels: list = ["EAS", "Cell", "Social", "Radio"]
     max_alerts_per_hour: int = 10
-    
+
     # =============================================================================
     # Flood Prediction Data Sources
     # =============================================================================
@@ -173,7 +180,7 @@ class Settings(BaseSettings):
     usgs_data_refresh_interval: int = 3600  # 1 hour in seconds
     enable_real_time_data: bool = True
     data_source_priority: list = ["usgs", "noaa", "openmeteo"]  # Priority order for data sources
-    
+
     # =============================================================================
     # Feature Flags
     # =============================================================================
@@ -181,23 +188,23 @@ class Settings(BaseSettings):
     enable_async_processing: bool = True
     enable_webhooks: bool = False
     maintenance_mode: bool = False
-    
+
     # Additional Feature Flags
     enable_auth: bool = True
     enable_file_upload: bool = True
     enable_background_jobs: bool = True
     enable_rate_limiting: bool = True
     enable_swagger: bool = True
-    
+
     # Environment-specific properties
     @property
     def is_development(self) -> bool:
         return self.env.lower() == "development"
-    
+
     @property
     def is_production(self) -> bool:
         return self.env.lower() == "production"
-    
+
     @property
     def is_test(self) -> bool:
         return self.env.lower() == "test"
@@ -254,7 +261,7 @@ def get_cache_db(cache_name: str = "main") -> str:
     except ImportError:
         def init_func(path: str):
             pass  # Placeholder - replace with actual init function
-    
+
     return _init_db(cache_dir / f"{cache_name}.db", _known_cache_dbs, init_func)
 
 
@@ -266,7 +273,7 @@ def get_user_db(user_id: str) -> str:
     except ImportError:
         def init_func(path: str):
             pass
-    
+
     return _init_db(get_user_dir(user_id) / "user.db", _known_user_dbs, init_func)
 
 
@@ -278,7 +285,7 @@ def get_app_db(db_name: str = "main") -> str:
     except ImportError:
         def init_func(path: str):
             pass
-    
+
     return _init_db(data_dir / f"{db_name}.db", _known_app_dbs, init_func)
 
 
@@ -337,7 +344,7 @@ def configure_logging():
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer() if not settings.debug 
+            structlog.processors.JSONRenderer() if not settings.debug
             else structlog.dev.ConsoleRenderer(),
         ],
         context_class=dict,
@@ -357,7 +364,7 @@ log = structlog.stdlib.get_logger()
 
 class Timer:
     """Context manager for timing operations"""
-    
+
     def __enter__(self):
         self._start = perf_counter()
         return self
@@ -370,7 +377,7 @@ class Timer:
 
 class BaseContext(ABC):
     """Abstract base class for operation contexts"""
-    
+
     @property
     @abstractmethod
     def status(self) -> Optional[str]:
@@ -407,7 +414,7 @@ class BaseContext(ABC):
 
 class ConsoleContext(BaseContext):
     """Console-based context for local operations"""
-    
+
     def __init__(self):
         self._status: Optional[str] = None
         self._aborted: bool = False
@@ -450,29 +457,29 @@ class OperationAborted(Exception):
 def validate_settings():
     """Validate critical settings"""
     errors = []
-    
+
     # Production-specific validations
     if settings.env == "production":
         if settings.secret_key in ["change-me-in-production", "dev-secret-key-not-for-production"]:
             errors.append("SECRET_KEY must be changed in production")
-        
+
         if settings.debug:
             errors.append("DEBUG must be False in production")
-        
+
         if settings.cors_origins == ["*"]:
             errors.append("CORS_ORIGINS should not be wildcard (*) in production")
-    
+
     # General validations
     if settings.oidc_authority and not settings.oidc_client_id:
         errors.append("OIDC_CLIENT_ID is required when OIDC_AUTHORITY is set")
-    
+
     if not settings.redis_url:
         errors.append("REDIS_URL is required")
-    
+
     # Port validation
     if not (1 <= settings.port <= 65535):
         errors.append(f"PORT must be between 1 and 65535, got {settings.port}")
-    
+
     if errors:
         for error in errors:
             log.error("Configuration error", error=error)
@@ -483,10 +490,10 @@ def print_settings(sensitive_keys: Optional[Set[str]] = None):
     """Print all settings (excluding sensitive ones)"""
     if sensitive_keys is None:
         sensitive_keys = {
-            "secret_key", "oidc_client_secret", "redis_password", 
+            "secret_key", "oidc_client_secret", "redis_password",
             "external_api_key", "database_url"
         }
-    
+
     log.info("Application settings:")
     for key, value in settings.model_dump().items():
         if key.lower() in sensitive_keys:
@@ -515,21 +522,21 @@ def get_config_dict() -> Dict[str, Any]:
 
 def initialize_app():
     """Initialize application with settings validation"""
-    log.info("Initializing application", 
-             app_name=settings.app_name, 
+    log.info("Initializing application",
+             app_name=settings.app_name,
              version=settings.app_version)
-    
+
     # Validate settings
     validate_settings()
-    
+
     # Print settings if in debug mode
     if settings.debug:
         print_settings()
-    
+
     # Initialize directories
     data_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    
+
     log.info("Application initialized successfully")
 
 
@@ -549,20 +556,20 @@ if __name__ != "__main__":
 if __name__ == "__main__":
     print("Settings Template")
     print("=" * 50)
-    
+
     initialize_app()
-    
+
     # Example usage
     print(f"\nData directory: {data_dir}")
     print(f"Cache directory: {cache_dir}")
     print(f"User directory for 'user123': {get_user_dir('user123')}")
-    
+
     # Timer example
     with Timer() as timer:
         import time
         time.sleep(0.1)
     print(f"\nTimer test: {timer.time}")
-    
+
     # Context example
     context = ConsoleContext()
     context.status = "Testing context"

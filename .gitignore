@@ -167,3 +167,24 @@ core/.data/
 core/venv-mcp/
 
 local/
+
+# Environment files with secrets
+.env
+
+# Docker override files (unless intentionally shared)
+docker-compose.override.yml
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
