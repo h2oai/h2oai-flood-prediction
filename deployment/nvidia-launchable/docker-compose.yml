@@ -1,13 +1,13 @@
 services:
   # Main web application (FastAPI + MCP server + RQ worker)
   web:
-    image: ${WEB_IMAGE_REGISTRY:-h2oairelease}/${WEB_IMAGE_REPOSITORY:-h2oai-floodprediction-app}:${WEB_IMAGE_TAG:-v1.0.0}
-    container_name: flood-prediction-web
+    image: ${WEB_IMAGE_REGISTRY:-h2oairelease}/${WEB_IMAGE_REPOSITORY:-h2oai-floodintelligence-app}:${WEB_IMAGE_TAG:-v1.2.0}
+    container_name: flood-intelligence-web
     restart: unless-stopped
     ports:
       - "0.0.0.0:${WEB_PORT:-8000}:8000"
     networks:
-      - flood-prediction-network
+      - flood-intelligence-network
     depends_on:
       redis:
         condition: service_healthy
@@ -45,10 +45,10 @@ services:
   # Redis for task queue and caching
   redis:
     image: ${REDIS_IMAGE_REGISTRY:-docker.io}/${REDIS_IMAGE_REPOSITORY:-redis}:${REDIS_IMAGE_TAG:-8.2.1}
-    container_name: flood-prediction-redis
+    container_name: flood-intelligence-redis
     restart: unless-stopped
     networks:
-      - flood-prediction-network
+      - flood-intelligence-network
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -61,8 +61,8 @@ services:
 
 volumes:
   redis-data:
-    name: flood-prediction-redis-data
+    name: flood-intelligence-redis-data
 
 networks:
-  flood-prediction-network:
-    name: flood-prediction-network
+  flood-intelligence-network:
+    name: flood-intelligence-network

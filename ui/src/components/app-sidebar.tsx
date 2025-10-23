@@ -52,7 +52,7 @@ const sidebarItems = [
     title: "AI Assistant",
     url: "/ai-assistant",
     icon: Bot,
-    description: "Chat with flood prediction AI",
+    description: "Chat with flood intelligence AI",
   },
   {
     title: "Settings",
@@ -77,7 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {!isCollapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-sidebar-foreground">
-                Flood Prediction
+                Flood Intelligence
               </span>
               <span className="text-xs text-sidebar-foreground/60">
                 AI for Good
@@ -95,8 +95,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 isActive={location.pathname === item.url}
                 size="lg"
                 className={`
-                  ${isCollapsed 
-                    ? 'h-14 w-full justify-center p-4 mx-0 group-data-[collapsible=icon]:size-auto! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:h-14!' 
+                  ${isCollapsed
+                    ? 'h-14 w-full justify-center p-4 mx-0 group-data-[collapsible=icon]:size-auto! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:h-14!'
                     : 'h-16 w-full justify-start gap-3 p-4'}
                   rounded-lg text-left hover:bg-sidebar-accent
                 `}

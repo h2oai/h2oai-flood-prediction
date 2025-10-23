@@ -1,12 +1,3 @@
-# Optionally reference existing imagePullSecrets, e.g. created by your platform
-imagePullSecrets:
-  - name: flood-prediction-registry
-
-image:
-  registry: h2oaireleasetest
-  repository: h2oai-flood-prediction
-  tag: v0.2.15
-
 service:
   type: NodePort
 
@@ -19,11 +10,3 @@ nimllm:
     ngcAPISecret: ngc-api
   imagePullSecrets:
     - name: ngc-secret
-
-notebook:
-  imagePullSecrets:
-    - name: flood-prediction-notebook-registry
-  image:
-    repository: h2oai-floodprediction-notebook
-    registry: maker9
-    tag: v0.1.0

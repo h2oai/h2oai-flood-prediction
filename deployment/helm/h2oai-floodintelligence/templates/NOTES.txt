@@ -66,7 +66,7 @@ QUICK REFERENCE:
 
    Then install:
 {{- end }}
-   helm install <release-name> ./h2oai-floodprediction --namespace <ns> --create-namespace \
+   helm install <release-name> ./h2oai-floodintelligence --namespace <ns> --create-namespace \
      --set nvidia.apiKey=<your-nvidia-api-key> \
      --set h2ogpte.apiKey=<your-h2ogpte-api-key>{{- if .Values.notebook.enabled }} \
      --set notebook.token=<your-secure-token>{{- end }}
@@ -91,12 +91,12 @@ QUICK REFERENCE:
 
 4. Update your deployment
 
-   helm upgrade {{ .Release.Name }} ./h2oai-floodprediction \
+   helm upgrade {{ .Release.Name }} ./h2oai-floodintelligence \
      --reuse-values
 {{- if .Values.notebook.enabled }}
 
    To rotate notebook token (recommended periodically):
-   helm upgrade {{ .Release.Name }} ./h2oai-floodprediction \
+   helm upgrade {{ .Release.Name }} ./h2oai-floodintelligence \
      --reuse-values \
      --set notebook.token=<new-secure-token>
 {{- end }}
@@ -138,4 +138,4 @@ QUICK REFERENCE:
 
 ================================================================================
 
-For more information: https://github.com/h2oai/flood_prediction
+For more information: https://github.com/h2oai/h2oai-flood-intelligence-agent

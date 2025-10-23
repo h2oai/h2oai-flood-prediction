@@ -8,7 +8,4 @@ RUN mamba install --yes 'openai' && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
 
-COPY --chown=${NB_UID}:${NB_GID} notebooks/Building_Flood_Prediction_Agents.ipynb "/home/${NB_USER}/work/"
-
-# docker build --no-cache -t h2oai-floodprediction-notebook:v0.1.0 -f Dockerfile.notebook .
-# docker run --rm -it --name flood-notebook -p 8888:8888 h2oai-floodprediction-notebook:v0.1.0 start-notebook.py --IdentityProvider.token=''
+COPY --chown=${NB_UID}:${NB_GID} Building_Flood_Intelligence_Agents.ipynb "/home/${NB_USER}/work/"

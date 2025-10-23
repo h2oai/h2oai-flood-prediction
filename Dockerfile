@@ -43,13 +43,3 @@ COPY core/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-
-
-# docker build -t h2oai-flood-prediction:v0.2.0 .
-
-# docker run --rm -it \
-#   -p 8000:8000 \
-#   --env-file "$(pwd)/core/.env" \
-#   -v "$(pwd)/core/.env:/app/core/.env:ro" \
-#   --name h2oai-flood-prediction \
-#   h2oai-flood-prediction:v0.2.0

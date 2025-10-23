@@ -1,6 +1,6 @@
-# 🌊 Building AI-Powered Flood Prediction System
+# 🌊 Building AI-Powered Flood Intelligence System
 
-Welcome! This guide will help you build and deploy an **AI-powered flood prediction and disaster response system** using NVIDIA NIM and h2oGPTe.
+Welcome! This guide will help you build and deploy an **AI-powered flood intelligence and disaster response system** using NVIDIA NIM and h2oGPTe.
 
 ## What You'll Build
 
@@ -11,7 +11,7 @@ An intelligent system that combines:
 - **Predictive analytics** for flood forecasting
 - **Interactive dashboard** for monitoring and alerts
 
-By the end of this guide, you'll have a fully functional flood prediction system running with live data.
+By the end of this guide, you'll have a fully functional flood intelligence system running with live data.
 
 ---
 
@@ -38,8 +38,9 @@ By the end of this guide, you'll have a fully functional flood prediction system
 ### Step 1: Open the Notebook
 
 1. In your Jupyter environment, navigate to the notebook:
+
    ```
-   Building_Flood_Prediction_Agents_Nvidia_Launchable.ipynb
+   Building_Flood_Intelligence_Agents.ipynb
    ```
 
 2. Open the notebook - you'll see it's organized into clear sections
@@ -75,7 +76,7 @@ This section sets up your environment and deploys the application.
 3. **Generate Configuration File** (Cells 12-13)
    - Run the cells to create your configuration
    - The notebook shows a summary of what was configured
-   - A file called `flood_prediction.env` is created automatically
+   - A file called `flood_intelligence.env` is created automatically
 
 4. **Pull Docker Images** (Cells 17-18, optionally 23-27)
    - This downloads the application containers
@@ -97,7 +98,7 @@ This section sets up your environment and deploys the application.
 
 ### 🚀 Section 2: NVIDIA NIM Integration
 
-Learn how NVIDIA's language models power the flood prediction system:
+Learn how NVIDIA's language models power the flood intelligence system:
 - Test different NVIDIA models
 - See streaming responses in action
 - Compare model performance
@@ -148,16 +149,16 @@ Work with live data from government agencies:
 
 Once deployment is complete (Section 1), you can access the interactive dashboard:
 
-1. Look for **port 8090** in your environment
+1. Goto the "Access" section of your deployed instance on brev.
+2. At the bottom of the page, find "Using Ports" section.
+3. If the cloud provider allows forwarding ports, there will be a clickable link similar to x.x.x.x:8090 under the "TCP/UDP Ports" section.
 2. Open that URL in your browser
-3. You'll see the Flood Prediction Dashboard with:
+3. You'll see the Flood Intelligence Dashboard with:
    - Real-time flood monitoring
    - Interactive watershed maps
    - Agent status and insights
    - Alert management
    - Data visualizations
-
-**Note**: If using NVIDIA Launchable, the port should already be configured and accessible.
 
 ---
 
@@ -168,14 +169,14 @@ Once deployment is complete (Section 1), you can access the interactive dashboar
 **Problem**: After deploying, containers don't show "(healthy)" status
 
 **Solutions**:
-1. Wait 2-3 minutes - services take time to initialize
+1. Wait 20-30 minutes - services take time to initialize
 2. Run this cell again to check status:
    ```python
    !docker ps -a
    ```
 3. If still not healthy after 5 minutes, check logs:
    ```python
-   !docker logs flood-prediction-web
+   !docker logs flood-intelligence-web
    ```
 
 ### Can't Access the Dashboard
@@ -198,8 +199,8 @@ Once deployment is complete (Section 1), you can access the interactive dashboar
 3. Re-run the key collection cells if needed
 4. After fixing keys, restart the deployment:
    ```python
-   !docker compose -f ./docker-compose.yml --env-file ./flood_prediction.env down
-   !docker compose -f ./docker-compose.yml --env-file ./flood_prediction.env up -d
+   !docker compose -f ../deployment/nvidia-launchable/docker-compose.yml --env-file ./flood_intelligence.env down
+   !docker compose -f ../deployment/nvidia-launchable/docker-compose.yml --env-file ./flood_intelligence.env up -d
    ```
 
 ### Out of Memory
@@ -211,7 +212,7 @@ Once deployment is complete (Section 1), you can access the interactive dashboar
 2. Close other applications to free up memory
 3. Restart the containers:
    ```python
-   !docker compose --env-file ./flood_prediction.env restart
+   !docker compose --env-file ./flood_intelligence.env restart
    ```
 
 ### Notebook Kernel Issues
@@ -254,23 +255,23 @@ All containers should show "Up" and "(healthy)"
 
 ### View Logs
 ```python
-!docker logs flood-prediction-web
-!docker logs flood-prediction-redis
+!docker logs flood-intelligence-web
+!docker logs flood-intelligence-redis
 ```
 
 ### Restart Services
 ```python
-!docker compose --env-file ./flood_prediction.env restart
+!docker compose --env-file ./flood_intelligence.env restart
 ```
 
 ### Stop Services
 ```python
-!docker compose --env-file ./flood_prediction.env down
+!docker compose --env-file ./flood_intelligence.env down
 ```
 
 ### Start Services Again
 ```python
-!docker compose --env-file ./flood_prediction.env up -d
+!docker compose --env-file ./flood_intelligence.env up -d
 ```
 
 ---
@@ -288,7 +289,7 @@ If you encounter issues:
 
 ## About This System
 
-This flood prediction system is built with:
+This flood intelligence system is built with:
 - **NVIDIA NIM** - High-performance AI inference
 - **h2oGPTe** - Enterprise AI and AutoML
 - **FastMCP** - Multi-agent coordination

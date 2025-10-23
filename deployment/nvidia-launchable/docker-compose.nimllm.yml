@@ -14,13 +14,13 @@ services:
   # NVIDIA NIM LLM inference service
   nimllm:
     image: ${NIMLLM_IMAGE:-nvcr.io/nim/nvidia/llama-3_3-nemotron-super-49b-v1_5:1.12.0}
-    container_name: flood-prediction-nimllm
+    container_name: flood-intelligence-nimllm
     restart: unless-stopped
     runtime: nvidia
     ports:
       - "0.0.0.0:${NIMLLM_PORT:-8989}:8000"
     networks:
-      - flood-prediction-network
+      - flood-intelligence-network
     environment:
       - NGC_API_KEY=${NGC_API_KEY:?NGC_API_KEY is required for NIM LLM}
     volumes:
@@ -52,4 +52,4 @@ services:
 
 volumes:
   nim-cache:
-    name: flood-prediction-nim-cache
+    name: flood-intelligence-nim-cache

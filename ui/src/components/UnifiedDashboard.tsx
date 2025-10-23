@@ -1109,7 +1109,7 @@ I can help you with:
                 <div className="flex items-center px-6 pb-4">
                     <div className="flex items-center space-x-4 py-4 flex-1">
                         <img src={h2oIcon} alt="H2O.ai" className="h-8 w-8 mr-2" />
-                        <h1 className="text-2xl font-bold text-white">Flood Prediction</h1>
+                        <h1 className="text-2xl font-bold text-white">Flood Intelligence</h1>
 
                         {/* Region Selector */}
                         <div className="flex items-center space-x-2 ml-4">

@@ -1,4 +1,4 @@
-{{- define "h2oai-floodprediction.name" -}}
+{{- define "h2oai-floodintelligence.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -7,7 +7,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "h2oai-floodprediction.fullname" -}}
+{{- define "h2oai-floodintelligence.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -23,7 +23,7 @@ If release name contains chart name it will be used as a full name.
 {{/*
    Create a Client Secret for NVIDIA API Key
 */}}
-{{- define "h2oai-floodprediction.nvidiaApiKey" -}}
+{{- define "h2oai-floodintelligence.nvidiaApiKey" -}}
 {{- $secret := (lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" .Release.Name)) -}}
 {{- if .Values.nvidia.apiKey -}}
 {{- .Values.nvidia.apiKey -}}
@@ -37,7 +37,7 @@ If release name contains chart name it will be used as a full name.
 {{/*
    Create a Client Secret for H2OGPTE API Key
 */}}
-{{- define "h2oai-floodprediction.h2ogpteAPIKey" -}}
+{{- define "h2oai-floodintelligence.h2ogpteAPIKey" -}}
 {{- $secret := (lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" .Release.Name)) -}}
 {{- if .Values.h2ogpte.apiKey -}}
 {{- .Values.h2ogpte.apiKey -}}
@@ -51,7 +51,7 @@ If release name contains chart name it will be used as a full name.
 {{/*
    Create a Client Secret for Jupyter Notebook Token
 */}}
-{{- define "h2oai-floodprediction.jupyterToken" -}}
+{{- define "h2oai-floodintelligence.jupyterToken" -}}
 {{- $secret := (lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" .Release.Name)) -}}
 {{- if and (hasKey .Values.notebook "token") (ne .Values.notebook.token nil) -}}
 {{- .Values.notebook.token -}}

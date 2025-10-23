@@ -31,7 +31,7 @@ spec:
           image: "{{ .Values.notebook.image.registry }}/{{ .Values.notebook.image.repository }}:{{ .Values.notebook.image.tag }}"
           imagePullPolicy: {{ .Values.notebook.image.pullPolicy }}
           command: ["start-notebook.py"]
-          {{- $token := include "h2oai-floodprediction.jupyterToken" . }}
+          {{- $token := include "h2oai-floodintelligence.jupyterToken" . }}
           args:
             - "--ServerApp.base_url=/jupyter"
             {{- if eq $token "" }}
